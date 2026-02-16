@@ -8,7 +8,7 @@
 | 1 | Platform Foundation | Complete | 2026-02-16 | 2026-02-16 | 138/138 | ~80% | Auth, DB, Cache, Email, Geo, Logging |
 | 2 | Data Pipeline | Complete | 2026-02-16 | 2026-02-16 | 126/126 | ~85% | Bridge MLS extraction, 7 repos, admin dashboard |
 | 3 | Core Property System | Complete | 2026-02-16 | 2026-02-16 | 140/140 | ~85% | Search, filters, autocomplete, detail |
-| 4 | User System | Not Started | - | - | - | - | Auth, favorites, saved searches |
+| 4 | User System | Complete | 2026-02-16 | 2026-02-16 | 169/169 | ~85% | Auth, favorites, saved searches, profile, password reset |
 | 5 | Schools | Not Started | - | - | - | - | Rankings, data, integration |
 | 6 | Appointments | Not Started | - | - | - | - | Booking, Google Calendar |
 | 7 | Agent-Client System | Not Started | - | - | - | - | Relationships, sharing |
@@ -19,7 +19,116 @@
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 3 - Core Property System - COMPLETE
+## Current Phase: 4 - User System - COMPLETE
+
+### Objectives
+- [x] Create 4 database migrations (favorites, saved_searches, revoked_tokens, password_resets)
+- [x] Implement 4 repositories (FavoriteRepository, SavedSearchRepository, TokenRevocationRepository, PasswordResetRepository)
+- [x] Implement UserAuthService (login, register, refresh, logout, forgot-password, reset-password, delete-account, rate limiting)
+- [x] Implement FavoriteService (list, toggle, add, remove, batch listing IDs)
+- [x] Implement SavedSearchService (CRUD with ownership checks, 25-per-user limit, alert infrastructure)
+- [x] Implement UserProfileService (get, update, change password)
+- [x] Implement UserProfileFormatter (v1-compatible profile format, WP role mapping)
+- [x] Implement AuthController (7 routes: login, register, refresh, forgot-password, logout, me, delete-account)
+- [x] Implement FavoriteController (3 routes: index, toggle, remove)
+- [x] Implement SavedSearchController (5 routes: index, store, show, update, destroy)
+- [x] Implement UserController (3 routes: show, update, changePassword)
+- [x] Implement UsersServiceProvider (DI wiring, route registration, token revocation filter, daily cleanup cron)
+- [x] Add bmn_is_token_revoked filter to platform AuthMiddleware
+- [x] Add bmn-smtp.php mu-plugin for Mailhog SMTP in Docker
+- [x] Write unit tests for all Phase 4 components (169 tests, 296 assertions)
+- [x] Docker verification: all 18 endpoints tested and working
+
+### Deliverables
+- 18 PHP source files (4 migrations, 4 repositories, 5 services, 4 controllers, 1 provider)
+- 16 test files + 1 test bootstrap (169 tests, 296 assertions)
+- 2 platform modifications (AuthMiddleware revocation filter, test bootstrap add_filter stub)
+- 1 mu-plugin (bmn-smtp.php for Docker email routing)
+- 18 REST endpoints covering auth, favorites, saved searches, and user profile
+- Token revocation with DB persistence and daily cleanup
+- Rate limiting (20 attempts/15-min window, 5-min lockout)
+- Password reset with SHA-256 hashed tokens, 1-hour expiry
+- Email enumeration prevention (forgot-password always returns success)
+- All files have `declare(strict_types=1)`
+- All SQL uses `$wpdb->prepare()`, URLs use `listing_id` not `listing_key`
+
+### Test Breakdown
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| MigrationsTest | 8 | ~16 |
+| FavoriteRepositoryTest | 12 | ~24 |
+| SavedSearchRepositoryTest | 10 | ~20 |
+| TokenRevocationRepositoryTest | 8 | ~16 |
+| PasswordResetRepositoryTest | 8 | ~16 |
+| UserProfileFormatterTest | 4 | ~8 |
+| FavoriteServiceTest | 14 | ~28 |
+| SavedSearchServiceTest | 14 | ~28 |
+| UserProfileServiceTest | 8 | ~16 |
+| UserAuthServiceTest | 30 | ~60 |
+| AuthControllerTest | 18 | ~36 |
+| FavoriteControllerTest | 10 | ~20 |
+| SavedSearchControllerTest | 12 | ~24 |
+| UserControllerTest | 8 | ~16 |
+| UsersServiceProviderTest | 15 | ~30 |
+| **Total** | **169** | **296** |
+
+### REST Endpoints (18)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/bmn/v1/auth/login` | No | Email/password login |
+| POST | `/bmn/v1/auth/register` | No | Create account |
+| POST | `/bmn/v1/auth/refresh` | No | Refresh tokens |
+| POST | `/bmn/v1/auth/forgot-password` | No | Initiate password reset |
+| POST | `/bmn/v1/auth/logout` | Yes | Revoke token |
+| GET | `/bmn/v1/auth/me` | Yes | Current user profile |
+| DELETE | `/bmn/v1/auth/delete-account` | Yes | Delete account + all data |
+| GET | `/bmn/v1/users/me` | Yes | Current user profile (alias) |
+| PUT | `/bmn/v1/users/me` | Yes | Update profile |
+| PUT | `/bmn/v1/users/me/password` | Yes | Change password |
+| GET | `/bmn/v1/favorites` | Yes | List favorites (paginated) |
+| POST | `/bmn/v1/favorites/{listing_id}` | Yes | Toggle favorite |
+| DELETE | `/bmn/v1/favorites/{listing_id}` | Yes | Remove favorite |
+| GET | `/bmn/v1/saved-searches` | Yes | List saved searches |
+| POST | `/bmn/v1/saved-searches` | Yes | Create saved search |
+| GET | `/bmn/v1/saved-searches/{id}` | Yes | Get saved search |
+| PUT | `/bmn/v1/saved-searches/{id}` | Yes | Update saved search |
+| DELETE | `/bmn/v1/saved-searches/{id}` | Yes | Delete saved search |
+
+### Architecture
+```
+AuthController (REST - 7 routes)
+  └── UserAuthService → AuthService (platform JWT)
+                       → EmailService (password reset emails)
+                       → TokenRevocationRepository (logout/revocation)
+                       → PasswordResetRepository (forgot-password flow)
+                       → FavoriteRepository + SavedSearchRepository (delete-account cascade)
+
+FavoriteController (REST - 3 routes)
+  └── FavoriteService → FavoriteRepository ($wpdb)
+
+SavedSearchController (REST - 5 routes)
+  └── SavedSearchService → SavedSearchRepository ($wpdb)
+
+UserController (REST - 3 routes)
+  └── UserProfileService → UserProfileFormatter (static)
+                          → WP user functions (wp_update_user, wp_set_password, etc.)
+
+AuthMiddleware (platform)
+  └── bmn_is_token_revoked filter → TokenRevocationRepository (via UsersServiceProvider hook)
+```
+
+### Key Design Decisions
+1. **Token revocation via WordPress filter** — Platform `AuthMiddleware` fires `bmn_is_token_revoked` after JWT validation. The users plugin hooks in to check the DB revocation table. This keeps the platform generic.
+2. **DB-backed revocation** — Not WP transients (can be evicted by object cache pressure). DB table guarantees durability with auto-cleanup cron.
+3. **Custom tables for favorites/searches** — Not `wp_usermeta`. Enables indexed queries, pagination, and batch operations.
+4. **Custom password reset table** — Not WP's `user_activation_key`. Needed for API-driven reset flow (iOS app deep links).
+5. **`listing_id` everywhere** — MLS number directly, no listing_key hash translation.
+6. **Saved search alert infra prepared** — `last_alert_at`, `result_count`, `new_count` columns built. Actual matching deferred to later phases.
+7. **No `final` on mockable classes** — Services and repositories not `final` for PHPUnit 10 mockability.
+
+---
+
+## Previous Phase: 3 - Core Property System - COMPLETE
 
 ### Objectives
 - [x] Build filter system (StatusResolver, SortResolver, FilterBuilder, FilterResult)

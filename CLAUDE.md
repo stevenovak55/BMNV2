@@ -3,11 +3,11 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 3 (Core Property System) - COMPLETE
-**Status:** Complete (140 tests, 280 assertions) - search, detail, autocomplete endpoints
-**Previous Phase:** 2 (Data Pipeline) - tagged v2.0.0-phase2
-**Current Tag:** v2.0.0-phase3
-**Next Phase:** 4 (User System) - Auth, favorites, saved searches
+## Current Phase: 4 (User System) - COMPLETE
+**Status:** Complete (169 tests, 296 assertions) - auth, favorites, saved searches, profile, password reset
+**Previous Phase:** 3 (Core Property System) - tagged v2.0.0-phase3
+**Current Tag:** v2.0.0-phase4
+**Next Phase:** 5 (Schools) - Rankings, data integration, school filter hook
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -74,6 +74,9 @@ cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-extractor && comp
 # Run properties tests
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-properties && composer test
 
+# Run users tests
+cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-users && composer test
+
 # Run PHP linter
 composer lint
 
@@ -101,5 +104,8 @@ At session end: Update CLAUDE.md, write session handoff, commit and push
 | School rankings | class-ranking-calculator.php |
 | MLS extraction | class-bme-data-processor.php |
 | All 45 pitfalls | CLAUDE.md |
+
+## Token Revocation
+The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT validation. The `bmn-users` plugin hooks into this to check the `bmn_revoked_tokens` table. Any plugin can hook into this filter to reject tokens.
 
 *Last updated: 2026-02-16*

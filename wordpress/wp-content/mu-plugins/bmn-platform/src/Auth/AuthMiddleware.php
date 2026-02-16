@@ -161,6 +161,9 @@ final class AuthMiddleware
     /**
      * Validate a JWT and set the current WordPress user.
      *
+     * Fires the `bmn_is_token_revoked` filter after successful JWT
+     * validation so that plugins (e.g. bmn-users) can reject revoked tokens.
+     *
      * @return bool|WP_Error True on success.
      */
     private function authenticateWithJwt(string $token): bool|WP_Error
@@ -171,6 +174,17 @@ final class AuthMiddleware
             return new WP_Error(
                 'bmn_auth_invalid_token',
                 $e->getMessage(),
+                ['status' => 401]
+            );
+        }
+
+        // Allow plugins to reject revoked tokens.
+        $revoked = apply_filters('bmn_is_token_revoked', false, $token, $payload);
+
+        if ($revoked) {
+            return new WP_Error(
+                'bmn_auth_token_revoked',
+                'Token has been revoked.',
                 ['status' => 401]
             );
         }

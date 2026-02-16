@@ -136,12 +136,19 @@ if (! function_exists('add_action')) {
 }
 
 if (! function_exists('add_filter')) {
+    /** @var array<string, list<array{callback: callable, priority: int, accepted_args: int}>> */
+    $GLOBALS['wp_filters'] = $GLOBALS['wp_filters'] ?? [];
+
     /**
-     * Hooks a function to a specific filter (stub: no-op).
+     * Hooks a function to a specific filter (stub: stores for testing).
      */
     function add_filter(string $hook, callable $callback, int $priority = 10, int $accepted_args = 1): void
     {
-        // No-op for unit tests.
+        $GLOBALS['wp_filters'][$hook][] = [
+            'callback'      => $callback,
+            'priority'      => $priority,
+            'accepted_args' => $accepted_args,
+        ];
     }
 }
 
