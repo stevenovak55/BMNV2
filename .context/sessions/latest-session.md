@@ -8,6 +8,9 @@
 - Updated REBUILD_PROGRESS.md with Phase 2 completion details
 - Updated CLAUDE.md to reflect Phase 2 complete, v2.0.0-phase2
 - Committed and tagged v2.0.0-phase2
+- **Bug fix:** Deferred `bmn_platform_loaded` action to `plugins_loaded` hook — mu-plugins fire before regular plugins, so the extractor couldn't hook in
+- **Bug fix:** Fixed extractor bootstrap to accept `Application $app` param instead of reading nonexistent `$GLOBALS['bmn_container']`
+- Docker verified: all 8 tables created, REST endpoints working, health check passing, admin dashboard accessible
 
 ## Phase 2 Summary (Built in Previous Session, Finalized Here)
 
@@ -56,10 +59,13 @@
 - `composer.lock` — Lock file
 - `phpunit.xml.dist` — Test configuration
 
-## Docker Verification
-- Docker Desktop was unresponsive during this session
-- Plugin activation and table creation to be verified in next session
-- REST endpoints (status, stats) and admin dashboard to be confirmed live
+## Docker Verification (All Pass)
+- Plugin activated: `wp plugin activate bmn-extractor`
+- 8 tables created: bmn_properties, bmn_media, bmn_agents, bmn_offices, bmn_open_houses, bmn_extractions, bmn_property_history, bmn_migrations
+- `GET /bmn/v1/extractions/status` → `{"is_running": false, "last_run": null}`
+- `GET /bmn/v1/extractions/stats` → `{"total_properties": 0, "by_status": [], ...}`
+- `GET /bmn/v1/health/full` → all 6 services healthy
+- Admin dashboard (`/wp-admin/admin.php?page=bmn-extractor`) → HTTP 200
 
 ## Test Status
 - PHPUnit: 126 tests, 298 assertions, 0 deprecations
