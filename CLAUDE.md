@@ -3,11 +3,11 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 2 (Data Pipeline) - COMPLETE
-**Status:** Complete (126 tests, 298 assertions) + REST endpoints live
-**Previous Phase:** 1 (Platform Foundation) - tagged v2.0.0-phase1
-**Current Tag:** v2.0.0-phase2
-**Next Phase:** 3 (Core Property System) - Search, filters, autocomplete
+## Current Phase: 3 (Core Property System) - COMPLETE
+**Status:** Complete (140 tests, 280 assertions) - search, detail, autocomplete endpoints
+**Previous Phase:** 2 (Data Pipeline) - tagged v2.0.0-phase2
+**Current Tag:** v2.0.0-phase3
+**Next Phase:** 4 (User System) - Auth, favorites, saved searches
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -70,6 +70,9 @@ cd ~/Development/BMNBoston-v2/wordpress/wp-content/mu-plugins/bmn-platform && co
 
 # Run extractor tests
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-extractor && composer test
+
+# Run properties tests
+cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-properties && composer test
 
 # Run PHP linter
 composer lint

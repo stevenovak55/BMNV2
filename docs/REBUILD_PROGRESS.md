@@ -7,7 +7,7 @@
 | 0 | Project Setup | Complete | 2026-02-16 | 2026-02-16 | 17/17 | N/A | All infrastructure operational |
 | 1 | Platform Foundation | Complete | 2026-02-16 | 2026-02-16 | 138/138 | ~80% | Auth, DB, Cache, Email, Geo, Logging |
 | 2 | Data Pipeline | Complete | 2026-02-16 | 2026-02-16 | 126/126 | ~85% | Bridge MLS extraction, 7 repos, admin dashboard |
-| 3 | Core Property System | Not Started | - | - | - | - | Search, filters, autocomplete |
+| 3 | Core Property System | Complete | 2026-02-16 | 2026-02-16 | 140/140 | ~85% | Search, filters, autocomplete, detail |
 | 4 | User System | Not Started | - | - | - | - | Auth, favorites, saved searches |
 | 5 | Schools | Not Started | - | - | - | - | Rankings, data, integration |
 | 6 | Appointments | Not Started | - | - | - | - | Booking, Google Calendar |
@@ -19,7 +19,57 @@
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 2 - Data Pipeline - COMPLETE
+## Current Phase: 3 - Core Property System - COMPLETE
+
+### Objectives
+- [x] Build filter system (StatusResolver, SortResolver, FilterBuilder, FilterResult)
+- [x] Implement PropertySearchRepository (read-only DB queries, batch media/open-house fetch, autocomplete)
+- [x] Implement PropertySearchService (search orchestration, pagination, caching, school overfetch)
+- [x] Implement PropertyDetailService (single listing with photos, agent, office, open houses, history)
+- [x] Implement AutocompleteService (6 suggestion types, dedup, priority ranking)
+- [x] Implement PropertyController (REST endpoints: search, detail, autocomplete)
+- [x] Implement PropertiesServiceProvider (DI wiring, route registration, cache invalidation)
+- [x] Update bmn-properties.php bootstrap
+- [x] Write unit tests for all Phase 3 components (140 tests, 280 assertions)
+
+### Deliverables
+- 13 PHP source files (4 filter, 1 repository, 3 services, 2 models, 1 controller, 1 provider, 1 bootstrap update)
+- 10 test files + 1 test bootstrap (140 tests, 280 assertions)
+- REST endpoints: `GET /bmn/v1/properties`, `GET /bmn/v1/properties/{listing_id}`, `GET /bmn/v1/properties/autocomplete`
+- 14 filter groups: direct lookup, status, location, street, geo (bounds/polygon), type, price, rooms, size, time, parking, amenity, special, school (post-query hook)
+- 3-tier caching: search (2min), detail (1hr), autocomplete (5min) with extraction-triggered invalidation
+- All files have `declare(strict_types=1)`
+- All SQL uses `$wpdb->prepare()`, URLs use `listing_id` not `listing_key`
+
+### Test Breakdown
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| StatusResolverTest | 10 | ~20 |
+| SortResolverTest | 10 | ~10 |
+| FilterBuilderTest | 35 | ~75 |
+| PropertySearchRepositoryTest | 12 | ~25 |
+| PropertySearchServiceTest | 18 | ~45 |
+| PropertyDetailServiceTest | 15 | ~40 |
+| AutocompleteServiceTest | 15 | ~30 |
+| PropertyControllerTest | 12 | ~20 |
+| PropertiesServiceProviderTest | 10 | ~15 |
+| **Total** | **140** | **280** |
+
+### Architecture
+```
+PropertyController (REST)
+  ├── PropertySearchService → FilterBuilder → StatusResolver + SortResolver + GeocodingService
+  │                         → PropertySearchRepository ($wpdb)
+  │                         → CacheService (2-min TTL)
+  ├── PropertyDetailService → PropertySearchRepository
+  │                         → CacheService (1-hr TTL)
+  └── AutocompleteService   → PropertySearchRepository
+                            → CacheService (5-min TTL)
+```
+
+---
+
+## Previous Phase: 2 - Data Pipeline - COMPLETE
 
 ### Objectives
 - [x] Implement BridgeApiClient (RESO Web API client with pagination, rate limiting, retry logic)
