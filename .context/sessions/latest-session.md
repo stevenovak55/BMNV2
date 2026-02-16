@@ -1,78 +1,84 @@
-# Session Handoff - 2026-02-16 (Session 2)
+# Session Handoff - 2026-02-16 (Session 3)
 
-## Phase: 1 (Platform Foundation) - COMPLETE + Docker Verified
+## Phase: 2 (Data Pipeline) - COMPLETE
 
 ## What Was Accomplished This Session
-- Committed and tagged Phase 1: `54d9e95` tagged `v2.0.0-phase1`, pushed to origin
-- Fixed Docker environment to coexist with v1 (separate ports via `.env`)
-- Fixed WordPress site URL config (WP_HOME/WP_SITEURL with port)
-- Commented out premature multisite constants (need single-site install first)
-- Added JWT secret to wp-config via docker-compose
-- Created `bmn-loader.php` mu-plugin loader (WP doesn't auto-load subdirectory mu-plugins)
-- Created `HealthController` REST endpoint for live service verification
-- Registered health routes in `bmn-platform.php` bootstrap via `rest_api_init`
-- Activated bmn-theme via WP API
-- Verified all 6 platform services healthy via `/bmn/v1/health/full`
-- Added default WP plugins/themes to `.gitignore`
-- All 138 unit tests still passing (272 assertions)
+- Fixed PHP 8.5 deprecation warning (removed `setAccessible(true)` from PropertyRepositoryTest)
+- All 126 tests pass with 298 assertions, 0 deprecations
+- Updated REBUILD_PROGRESS.md with Phase 2 completion details
+- Updated CLAUDE.md to reflect Phase 2 complete, v2.0.0-phase2
+- Committed and tagged v2.0.0-phase2
 
-### Files Created
-- `wordpress/.env` — v2 Docker port config (8082/3307/8083/1026/8026)
-- `wordpress/wp-content/mu-plugins/bmn-loader.php` — mu-plugin loader
-- `wordpress/wp-content/mu-plugins/bmn-platform/src/Http/HealthController.php` — health check REST endpoint
+## Phase 2 Summary (Built in Previous Session, Finalized Here)
 
-### Files Modified
-- `wordpress/docker-compose.yml` — added WP_HOME/WP_SITEURL, BMN_JWT_SECRET, commented multisite constants
-- `wordpress/wp-content/mu-plugins/bmn-platform/bmn-platform.php` — registered HealthController routes
-- `.gitignore` — ignore default WP plugins/themes from Docker image
-- `CLAUDE.md` — added Docker URLs, health endpoints, current tag
-- `.context/sessions/latest-session.md` — this file
+### Source Files (15 + 1 view)
+- `src/Service/BridgeApiClient.php` — RESO Web API client with pagination and retry
+- `src/Service/DataNormalizer.php` — Bridge API response normalization
+- `src/Service/ExtractionEngine.php` — Full + incremental sync orchestration
+- `src/Service/CronManager.php` — WP cron scheduling (daily full, hourly incremental)
+- `src/Repository/PropertyRepository.php` — Property CRUD, upsert, search, stats
+- `src/Repository/MediaRepository.php` — Photo storage and ordering
+- `src/Repository/AgentRepository.php` — Agent records
+- `src/Repository/OfficeRepository.php` — Office records
+- `src/Repository/OpenHouseRepository.php` — Open house events
+- `src/Repository/ExtractionRepository.php` — Extraction run tracking
+- `src/Repository/PropertyHistoryRepository.php` — Price/status change history
+- `src/Api/Controllers/ExtractionController.php` — REST endpoints (status, stats, trigger)
+- `src/Admin/AdminDashboard.php` — WP admin dashboard page
+- `src/Admin/views/dashboard.php` — Dashboard view template
+- `src/Provider/ExtractorServiceProvider.php` — DI container wiring
 
-## Docker Environment
-| Service | Container | Port |
-|---------|-----------|------|
-| WordPress | bmn-v2-wordpress | 8082 |
-| MySQL 8.0 | bmn-v2-mysql | 3307 |
-| phpMyAdmin | bmn-v2-phpmyadmin | 8083 |
-| Mailhog | bmn-v2-mailhog | 1026 (SMTP) / 8026 (UI) |
+### Migrations (7)
+- `CreatePropertiesTable` — Denormalized properties with composite indexes
+- `CreateMediaTable` — Property photos with ordering
+- `CreateAgentsTable` — Agent records
+- `CreateOfficesTable` — Office records
+- `CreateOpenHousesTable` — Open house events
+- `CreateExtractionsTable` — Extraction run tracking
+- `CreatePropertyHistoryTable` — Price/status change log
 
-V1 environment runs on 8080/3306/8081/1025/8025 — no conflicts.
+### Test Files (10 + bootstrap)
+- `tests/bootstrap.php` — Test setup with WP stubs
+- `DataNormalizerTest` (34 tests) — Normalization of all property fields
+- `PropertyRepositoryTest` (15 tests) — CRUD, upsert, search
+- `ExtractionEngineTest` (13 tests) — Sync orchestration
+- `BridgeApiClientTest` (13 tests) — API client with mocked HTTP
+- `ExtractionRepositoryTest` (13 tests) — Run tracking
+- `ExtractionControllerTest` (10 tests) — REST endpoint responses
+- `CronManagerTest` (8 tests) — Cron scheduling
+- `PropertyHistoryRepositoryTest` (8 tests) — History tracking
+- `AdminDashboardTest` (7 tests) — Admin page rendering
+- `ExtractorServiceProviderTest` (5 tests) — DI wiring
 
-## Health Check Results (All Pass)
-```
-GET http://localhost:8082/?rest_route=/bmn/v1/health/full
-```
-| Service | Status | Detail |
-|---------|--------|--------|
-| Database | ok | MySQL connected, wp_ prefix, utf8mb4 |
-| Cache | ok | Transient write/read/delete pass |
-| Auth | ok | JWT generate + validate pass |
-| Logging | ok | Debug level, write pass |
-| Email | ok | From header configured |
-| Geocoding | ok | Boston→Cambridge = 2.76 miles |
+### Other Files
+- `bmn-extractor.php` — Plugin bootstrap (modified)
+- `composer.json` — Dependencies and autoloading (modified)
+- `composer.lock` — Lock file
+- `phpunit.xml.dist` — Test configuration
+
+## Docker Verification
+- Docker Desktop was unresponsive during this session
+- Plugin activation and table creation to be verified in next session
+- REST endpoints (status, stats) and admin dashboard to be confirmed live
 
 ## Test Status
-- PHPUnit: 138 tests, 272 assertions (1 skipped for time mocking)
+- PHPUnit: 126 tests, 298 assertions, 0 deprecations
 - All PHP files pass `php -l` syntax check
 - Zero forbidden patterns
 
-## What Needs to Happen Next (Phase 2: Data Pipeline)
-1. Build Bridge MLS Extractor plugin (bmn-extractor)
-2. Implement RETS/RESO Web API data fetching
-3. Build data normalization pipeline
-4. Create bmn_properties table and migration
-5. Build incremental sync with change detection
-6. Implement photo download and CDN integration
-7. Build extraction status dashboard
-8. Target: automated daily extraction with monitoring
+## What Needs to Happen Next (Phase 3: Core Property System)
+1. Build property search service with filtering and pagination
+2. Implement autocomplete for city, neighborhood, zip, school
+3. Build property detail endpoint (single listing with photos, agent, office)
+4. Create saved search system (criteria storage, match notifications)
+5. Build map-based search with geo bounding box queries
+6. Implement similar/comparable property finder
+7. Create property favorites endpoint
+8. Target: full property search API matching v1 feature set
 
 ## Architecture Notes
-- `bmn-loader.php` is required at `mu-plugins/` root — WP only auto-loads top-level PHP files
-- HealthController extends RestController, registered via `rest_api_init` hook in `bmn-platform.php`
-- Permalinks not yet enabled — use `?rest_route=` query param for REST API access
-- Multisite constants are commented out — need to complete WP network setup when ready
-- WordPress installed as "BMN Boston Real Estate" with bmn-theme active
-
-## Open Questions
-- When to enable multisite? (After Phase 2 or later)
-- Permalinks structure preference? (Need to enable in WP admin for pretty REST URLs)
+- `bmn_properties` table is denormalized for search performance (no JOINs needed)
+- Composite indexes on (status, property_type, city) and (status, list_price) for common queries
+- ExtractionEngine supports both full sync and incremental (timestamp-based) sync
+- CronManager registers daily full sync + hourly incremental sync via WP cron
+- All repositories use `$wpdb->prepare()` for SQL injection prevention

@@ -12,7 +12,10 @@
     "autoload": {
         "psr-4": {
             "BMN\\Extractor\\": "src/"
-        }
+        },
+        "classmap": [
+            "migrations/"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

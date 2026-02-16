@@ -749,6 +749,17 @@ if (! class_exists('wpdb')) {
             return 1;
         }
 
+        public function get_col(?string $query = null, int $x = 0): array
+        {
+            if ($query !== null) {
+                $this->queries[] = ['sql' => $query, 'args' => []];
+            }
+            return $this->get_col_result ?? [];
+        }
+
+        /** @var array Canned return value for get_col(). */
+        public array $get_col_result = [];
+
         public function get_charset_collate(): string
         {
             return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';

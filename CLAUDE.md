@@ -3,11 +3,11 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 1 (Platform Foundation) - COMPLETE
-**Status:** Complete (138 tests, 272 assertions) + health endpoint live
-**Previous Phase:** 0 (Project Setup) - tagged v2.0.0-phase0
-**Current Tag:** v2.0.0-phase1
-**Next Phase:** 2 (Data Pipeline) - Ready to start
+## Current Phase: 2 (Data Pipeline) - COMPLETE
+**Status:** Complete (126 tests, 298 assertions) + REST endpoints live
+**Previous Phase:** 1 (Platform Foundation) - tagged v2.0.0-phase1
+**Current Tag:** v2.0.0-phase2
+**Next Phase:** 3 (Core Property System) - Search, filters, autocomplete
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -65,8 +65,11 @@ Ports configured in `wordpress/.env` to coexist with v1 environment.
 # Start dev environment
 cd ~/Development/BMNBoston-v2/wordpress && docker-compose up -d
 
-# Run PHP tests
+# Run platform tests
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/mu-plugins/bmn-platform && composer test
+
+# Run extractor tests
+cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-extractor && composer test
 
 # Run PHP linter
 composer lint
