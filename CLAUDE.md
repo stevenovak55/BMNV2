@@ -3,11 +3,11 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 4 (User System) - COMPLETE
-**Status:** Complete (169 tests, 296 assertions) - auth, favorites, saved searches, profile, password reset
-**Previous Phase:** 3 (Core Property System) - tagged v2.0.0-phase3
-**Current Tag:** v2.0.0-phase4
-**Next Phase:** 5 (Schools) - Rankings, data integration, school filter hook
+## Current Phase: 5 (Schools) - COMPLETE
+**Status:** Complete (165 tests, 284 assertions) - rankings, data import, school filter hook, 7 REST endpoints
+**Previous Phase:** 4 (User System) - tagged v2.0.0-phase4
+**Current Tag:** v2.0.0-phase5
+**Next Phase:** 6 (Appointments) - Booking, availability, Google Calendar, notifications
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -76,6 +76,9 @@ cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-properties && com
 
 # Run users tests
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-users && composer test
+
+# Run schools tests
+cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-schools && composer test
 
 # Run PHP linter
 composer lint
