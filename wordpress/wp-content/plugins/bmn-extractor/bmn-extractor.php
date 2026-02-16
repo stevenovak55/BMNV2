@@ -42,13 +42,8 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 }
 
 // Boot plugin when platform is ready.
-add_action('bmn_platform_loaded', function (): void {
-    /** @var \BMN\Platform\Core\Container $container */
-    $container = $GLOBALS['bmn_container'] ?? null;
-
-    if ($container === null) {
-        return;
-    }
+add_action('bmn_platform_loaded', function (\BMN\Platform\Core\Application $app): void {
+    $container = $app->getContainer();
 
     $provider = new Provider\ExtractorServiceProvider();
     $provider->register($container);
@@ -57,8 +52,7 @@ add_action('bmn_platform_loaded', function (): void {
 
 // Unschedule cron events on plugin deactivation.
 register_deactivation_hook(__FILE__, function (): void {
-    $container = $GLOBALS['bmn_container'] ?? null;
-    if ($container !== null) {
-        $container->make(Service\CronManager::class)->unregister();
-    }
+    $app = \BMN\Platform\Core\Application::getInstance();
+    $container = $app->getContainer();
+    $container->make(Service\CronManager::class)->unregister();
 });

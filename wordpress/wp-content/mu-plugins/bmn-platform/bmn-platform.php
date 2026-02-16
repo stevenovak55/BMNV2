@@ -63,6 +63,9 @@ add_action('rest_api_init', static function () use ($app): void {
 /**
  * Signal to all dependent plugins that the platform is ready.
  *
+ * Deferred to `plugins_loaded` so regular plugins (loaded after mu-plugins)
+ * can hook into `bmn_platform_loaded` before it fires.
+ *
  * Plugins should hook into this action to access platform services:
  *
  *     add_action('bmn_platform_loaded', function (\BMN\Platform\Core\Application $app) {
@@ -72,4 +75,6 @@ add_action('rest_api_init', static function () use ($app): void {
  *
  * @param \BMN\Platform\Core\Application $app The booted application instance.
  */
-do_action('bmn_platform_loaded', $app);
+add_action('plugins_loaded', static function () use ($app): void {
+    do_action('bmn_platform_loaded', $app);
+});
