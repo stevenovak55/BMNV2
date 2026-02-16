@@ -4,8 +4,9 @@
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
 ## Current Phase: 1 (Platform Foundation) - COMPLETE
-**Status:** Complete (138 tests, 272 assertions)
+**Status:** Complete (138 tests, 272 assertions) + health endpoint live
 **Previous Phase:** 0 (Project Setup) - tagged v2.0.0-phase0
+**Current Tag:** v2.0.0-phase1
 **Next Phase:** 2 (Data Pipeline) - Ready to start
 
 ## Critical Rules (NEVER VIOLATE)
@@ -29,6 +30,20 @@ Complete rebuild of the BMN Boston real estate platform. New codebase, clean arc
 - REST API namespace: `/wp-json/bmn/v1/`
 - New SwiftUI iOS app
 - Vite build system for theme
+
+## Docker Environment (v2)
+| Service | URL |
+|---------|-----|
+| WordPress | http://localhost:8082 |
+| phpMyAdmin | http://localhost:8083 |
+| Mailhog UI | http://localhost:8026 |
+| MySQL | localhost:3307 |
+
+Ports configured in `wordpress/.env` to coexist with v1 environment.
+
+## Health Check Endpoints
+- Basic: `GET /wp-json/bmn/v1/health` (or `?rest_route=/bmn/v1/health`)
+- Full: `GET /wp-json/bmn/v1/health/full` — tests all 6 platform services
 
 ## Namespace Map
 | Plugin | Namespace |
@@ -55,6 +70,9 @@ cd ~/Development/BMNBoston-v2/wordpress/wp-content/mu-plugins/bmn-platform && co
 
 # Run PHP linter
 composer lint
+
+# Test health endpoint
+curl -s "http://localhost:8082/?rest_route=/bmn/v1/health/full" | python3 -m json.tool
 
 # Start Vite dev server
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/themes/bmn-theme && npm run dev

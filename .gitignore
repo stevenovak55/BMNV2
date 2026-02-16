@@ -21,6 +21,14 @@ wordpress/xmlrpc.php
 wordpress/license.txt
 wordpress/readme.html
 
+# WordPress default plugins/themes (managed by Docker image)
+wordpress/wp-content/index.php
+wordpress/wp-content/plugins/akismet/
+wordpress/wp-content/plugins/hello.php
+wordpress/wp-content/plugins/index.php
+wordpress/wp-content/themes/index.php
+wordpress/wp-content/themes/twentytwenty*/
+
 # IDE
 .idea/
 .vscode/

@@ -52,6 +52,14 @@ require_once $autoloader;
 $app = \BMN\Platform\Core\Application::getInstance();
 $app->boot();
 
+// Register platform REST API routes.
+add_action('rest_api_init', static function () use ($app): void {
+    $container = $app->getContainer();
+
+    $healthController = new \BMN\Platform\Http\HealthController($container);
+    $healthController->registerRoutes();
+});
+
 /**
  * Signal to all dependent plugins that the platform is ready.
  *
