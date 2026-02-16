@@ -1,0 +1,26 @@
+{
+    "name": "bmn/analytics",
+    "description": "Site analytics and tracking",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "BMN\\Analytics\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BMN\\Analytics\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "phpcs"
+    }
+}

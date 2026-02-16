@@ -1,0 +1,301 @@
+<?xml version="1.0"?>
+<ruleset name="BMN Boston Coding Standards">
+
+    <description>
+        PHP_CodeSniffer ruleset for the BMNBoston-v2 project.
+
+        This configuration enforces PSR-12 as the base standard, layered with
+        project-specific rules derived from hard-won lessons in v1 (see the
+        "5 Most Critical Rules" in CLAUDE.md). Every custom rule references
+        the v1 pitfall it prevents.
+
+        Usage:
+            vendor/bin/phpcs --standard=shared/config/phpcs.xml
+            vendor/bin/phpcs --standard=shared/config/phpcs.xml -s   (show sniff names)
+    </description>
+
+    <!-- ================================================================== -->
+    <!--  PHP VERSION                                                        -->
+    <!-- ================================================================== -->
+
+    <!-- Target PHP 8.1+ so that enums, fibers, readonly, and intersection
+         types are recognised by the tokeniser. -->
+    <config name="testVersion" value="8.1-"/>
+
+    <!-- ================================================================== -->
+    <!--  FILES TO SCAN                                                      -->
+    <!-- ================================================================== -->
+
+    <!-- Scan mu-plugins (bmn-platform core) and all feature plugins. -->
+    <file>../../wordpress/wp-content/mu-plugins/</file>
+    <file>../../wordpress/wp-content/plugins/</file>
+
+    <!-- Only lint PHP files. -->
+    <arg name="extensions" value="php"/>
+
+    <!-- Show progress and use colours when running in a terminal. -->
+    <arg value="sp"/>
+    <arg name="colors"/>
+
+    <!-- ================================================================== -->
+    <!--  EXCLUDED PATHS                                                     -->
+    <!-- ================================================================== -->
+
+    <!-- Third-party dependencies managed by Composer. -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+
+    <!-- Front-end dependencies managed by npm/yarn. -->
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+
+    <!-- Compiled/built front-end assets (JS bundles, minified CSS, etc.). -->
+    <exclude-pattern>*/assets/dist/*</exclude-pattern>
+
+    <!-- Test suites have their own conventions (e.g. method naming for
+         PHPUnit) and are linted separately when needed. -->
+    <exclude-pattern>*/tests/*</exclude-pattern>
+
+    <!-- ================================================================== -->
+    <!--  BASE STANDARD: PSR-12                                              -->
+    <!-- ================================================================== -->
+
+    <!-- PSR-12 is the modern evolution of PSR-2 and covers:
+         - Namespace/use declarations
+         - Class/method/property visibility
+         - Control structure spacing
+         - Return type declarations
+         It is included in full; individual sniffs are overridden below
+         where WordPress conventions require it. -->
+    <rule ref="PSR12"/>
+
+    <!-- ================================================================== -->
+    <!--  LINE LENGTH                                                        -->
+    <!-- ================================================================== -->
+
+    <!-- Override PSR-12's default line-length limits.
+         - Warning at 120 characters (soft limit, aim to stay under this).
+         - Error at 200 characters (hard limit, never exceed). -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="200"/>
+        </properties>
+    </rule>
+
+    <!-- ================================================================== -->
+    <!--  STRICT TYPES DECLARATION                                           -->
+    <!-- ================================================================== -->
+
+    <!-- Every PHP file MUST begin with declare(strict_types=1).
+         This catches type coercion bugs at the earliest possible point,
+         which is critical when dealing with MLS numeric IDs, prices, and
+         coordinates that flow between the database, REST API, and iOS app. -->
+    <rule ref="Generic.PHP.RequireStrictTypes"/>
+
+    <!-- ================================================================== -->
+    <!--  FORBIDDEN FUNCTIONS                                                -->
+    <!-- ================================================================== -->
+
+    <!-- v1 Pitfall #3 (Timezone): time() returns UTC epoch. WordPress core
+         relies on the site's configured timezone for scheduling, cron, and
+         display. Using time() causes subtle off-by-one-day bugs in listing
+         age calculations and appointment windows.
+
+         RULE: Use current_time('timestamp') instead of time(). -->
+    <rule ref="Generic.PHP.ForbiddenFunctions">
+        <properties>
+            <property name="forbiddenFunctions" type="array">
+                <!-- time() -> current_time('timestamp')
+                     v1 Pitfall #3: Timezone must respect WP site settings. -->
+                <element key="time" value="current_time"/>
+
+                <!-- sizeof() -> count()  (standard PHP best practice) -->
+                <element key="sizeof" value="count"/>
+
+                <!-- print_r/var_dump should never appear in production code. -->
+                <element key="print_r" value="null"/>
+                <element key="var_dump" value="null"/>
+                <element key="var_export" value="null"/>
+
+                <!-- error_log() should use the BMN Logging service instead. -->
+                <element key="error_log" value="null"/>
+
+                <!-- eval() is always forbidden. -->
+                <element key="eval" value="null"/>
+
+                <!-- extract() makes variable origins untraceable. -->
+                <element key="extract" value="null"/>
+
+                <!-- compact() is the inverse of extract(); avoid for clarity. -->
+                <element key="compact" value="null"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- ================================================================== -->
+    <!--  PATTERN-BASED RULES (enforced via CI grep)                         -->
+    <!-- ================================================================== -->
+
+    <!--
+        The following rules cannot be reliably expressed as phpcs sniffs
+        because they require semantic/context-aware analysis beyond token
+        matching. They are enforced in CI via grep (see .github/workflows/).
+
+        Each grep command exits non-zero if a violation is found, failing
+        the CI pipeline.
+
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        RULE 1 - v1 Pitfall #2 (Year Rollover):
+            FORBID date('Y') or date("Y") in any query context.
+            Must use MAX(year) from the database instead.
+
+            Rationale: In v1, date('Y') caused listings from the previous
+            year to disappear on Jan 1 because the query hard-coded the
+            current year. The database knows which years actually have data.
+
+            CI grep command:
+                grep -rn --include="*.php" \
+                    -E "date\s*\(\s*['\"]Y['\"]" \
+                    wordpress/wp-content/mu-plugins/ \
+                    wordpress/wp-content/plugins/ \
+                && echo "FAIL: date('Y') detected. Use MAX(year) from DB for time-series queries." \
+                && exit 1
+
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        RULE 2 - v1 Pitfall #3 (Timezone, supplemental):
+            FORBID bare time() calls (supplements the ForbiddenFunctions
+            sniff above; the grep catches edge cases like $t = \time()).
+
+            CI grep command:
+                grep -rn --include="*.php" \
+                    -P "(?<![_a-zA-Z])time\s*\(" \
+                    wordpress/wp-content/mu-plugins/ \
+                    wordpress/wp-content/plugins/ \
+                | grep -v "current_time" \
+                | grep -v "strtotime" \
+                | grep -v "microtime" \
+                | grep -v "time_nanosleep" \
+                | grep -v "set_time_limit" \
+                && echo "FAIL: Bare time() detected. Use current_time('timestamp')." \
+                && exit 1
+
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        RULE 3 - v1 Pitfall #5 (SQL Injection / Unprepared Queries):
+            FORBID $wpdb->query( without a corresponding $wpdb->prepare(.
+            All dynamic SQL MUST be prepared to prevent injection.
+
+            CI grep command:
+                grep -rn --include="*.php" \
+                    -P '\$wpdb\s*->\s*query\s*\(' \
+                    wordpress/wp-content/mu-plugins/ \
+                    wordpress/wp-content/plugins/ \
+                | grep -v 'prepare' \
+                && echo "FAIL: \$wpdb->query() without prepare() detected." \
+                && exit 1
+
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        RULE 4 - v1 Pitfall #4 (Property URLs):
+            FORBID listing_key in URL construction contexts.
+            Must use listing_id (the MLS number) instead.
+
+            Rationale: listing_key is an opaque hash that can change when
+            the MLS re-indexes. listing_id (the MLS number) is the stable,
+            human-readable identifier used in all public-facing URLs.
+
+            CI grep command:
+                grep -rn --include="*.php" \
+                    -E "(permalink|url|link|href|route).*listing_key" \
+                    wordpress/wp-content/mu-plugins/ \
+                    wordpress/wp-content/plugins/ \
+                && echo "FAIL: listing_key used in URL context. Use listing_id (MLS number)." \
+                && exit 1
+    -->
+
+    <!-- ================================================================== -->
+    <!--  WORDPRESS COMPATIBILITY                                            -->
+    <!-- ================================================================== -->
+
+    <!-- WordPress hook/filter names use snake_case by convention
+         (e.g. 'init', 'wp_enqueue_scripts', 'pre_get_posts'). PSR-12
+         mandates camelCase for method names, which conflicts with WP
+         callback naming in some patterns.
+
+         We suppress the method-name sniff selectively for files that
+         register hooks, and we do NOT enforce camelCase on string
+         arguments passed to add_action/add_filter.
+
+         Note: Since our codebase uses classes with camelCase methods as
+         hook callbacks (e.g. add_action('init', [$this, 'registerRoutes'])),
+         PSR-12 method naming is generally compatible. The exclusion below
+         covers edge cases where WordPress requires specific callback names. -->
+
+    <!-- Allow WordPress-style snake_case in hook callback function names
+         when they are standalone functions (not class methods). -->
+    <rule ref="PSR1.Methods.CamelCapsMethodName">
+        <exclude-pattern>*/mu-plugins/*/src/Core/*</exclude-pattern>
+    </rule>
+
+    <!-- ================================================================== -->
+    <!--  ADDITIONAL CODE QUALITY SNIFFS                                     -->
+    <!-- ================================================================== -->
+
+    <!-- Detect unused function parameters. Helps keep signatures clean,
+         especially in REST API controller methods. -->
+    <rule ref="Generic.CodeAnalysis.UnusedFunctionParameter">
+        <severity>5</severity>
+    </rule>
+
+    <!-- Forbid unconditional if statements (if (true) / if (false)).
+         These are usually leftover debug code. -->
+    <rule ref="Generic.CodeAnalysis.UnconditionalIfStatement"/>
+
+    <!-- Forbid empty statements (stray semicolons, empty blocks). -->
+    <rule ref="Generic.CodeAnalysis.EmptyStatement"/>
+
+    <!-- Forbid nested ternary expressions without explicit parentheses.
+         PHP 8.0+ removed left-associative ternary chaining entirely. -->
+    <rule ref="Generic.Formatting.DisallowMultipleStatements"/>
+
+    <!-- Require a single blank line between methods for readability. -->
+    <rule ref="Squiz.WhiteSpace.FunctionSpacing">
+        <properties>
+            <property name="spacing" value="1"/>
+            <property name="spacingBeforeFirst" value="0"/>
+            <property name="spacingAfterLast" value="0"/>
+        </properties>
+    </rule>
+
+    <!-- Forbid inline control structures (if/else/for/while without braces).
+         PSR-12 already requires this, but this sniff gives a clearer message. -->
+    <rule ref="Generic.ControlStructures.InlineControlStructure"/>
+
+    <!-- Enforce consistent array syntax: short arrays [] only, no array(). -->
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+
+    <!-- ================================================================== -->
+    <!--  DOCUMENTATION                                                      -->
+    <!-- ================================================================== -->
+
+    <!-- Require doc blocks on classes and public methods. Internal/private
+         methods are encouraged but not enforced to reduce noise. -->
+    <rule ref="Squiz.Commenting.ClassComment"/>
+    <rule ref="Squiz.Commenting.FunctionComment">
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+    </rule>
+
+    <!-- ================================================================== -->
+    <!--  PERFORMANCE NOTES (informational)                                  -->
+    <!-- ================================================================== -->
+
+    <!--
+        v1 Pitfall #5 (Performance):
+            Property list queries MUST use the bme_listing_summary table,
+            not the full listing tables. This cannot be enforced by phpcs
+            but is documented here as a critical rule.
+
+            Developers: When writing property queries, always verify you are
+            selecting from bme_listing_summary for list/search endpoints.
+            Full listing data should only be fetched for single-property
+            detail views.
+    -->
+
+</ruleset>

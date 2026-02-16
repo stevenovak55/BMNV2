@@ -1,0 +1,26 @@
+{
+    "name": "bmn/extractor",
+    "description": "Bridge MLS data extraction pipeline",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "BMN\\Extractor\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BMN\\Extractor\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "phpcs"
+    }
+}

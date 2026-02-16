@@ -1,0 +1,3285 @@
+openapi: 3.1.0
+
+info:
+  title: BMN Boston API
+  version: 2.0.0-dev
+  description: |
+    BMN Boston real estate platform REST API.
+
+    This API powers both the iOS app and the web frontend through a unified
+    service layer (see ADR-002). All business logic lives in service classes;
+    REST controllers are thin wrappers.
+
+    ## Authentication
+    Most read endpoints are public. Write operations and user-specific data
+    require a Bearer JWT token obtained via `/auth/login` or `/auth/register`.
+
+    ## Standard Response Format
+    All endpoints return the `ApiResponse` wrapper:
+    ```json
+    {
+      "success": true,
+      "data": { ... },
+      "meta": { ... }
+    }
+    ```
+
+    ## Pagination
+    List endpoints support `page` and `per_page` query parameters. Pagination
+    metadata is returned in the `meta` field.
+
+    ## Error Handling
+    Errors return the `Error` schema with an appropriate HTTP status code:
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "INVALID_PARAMETER",
+        "message": "Human-readable description",
+        "details": { ... }
+      }
+    }
+    ```
+  contact:
+    name: BMN Boston Development
+    url: https://bmnboston.com
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: http://localhost:8080/wp-json/bmn/v1
+    description: Local development (Docker)
+  - url: https://staging.bmnboston.com/wp-json/bmn/v1
+    description: Staging
+  - url: https://bmnboston.com/wp-json/bmn/v1
+    description: Production
+
+security: []
+
+tags:
+  - name: Properties
+    description: Property listings search and detail
+  - name: Search
+    description: Autocomplete and filter options
+  - name: Auth
+    description: Authentication and user account management
+  - name: Favorites
+    description: User favorite properties
+  - name: SavedSearches
+    description: User saved search criteria with optional notifications
+  - name: Notifications
+    description: Push and in-app notifications
+  - name: Schools
+    description: School ratings, search, and comparison
+  - name: Appointments
+    description: Property showing appointments
+  - name: Agents
+    description: Agent profiles and client management
+  - name: CMA
+    description: Comparative Market Analysis reports
+  - name: Analytics
+    description: Event tracking and dashboard metrics
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+
+  # =========================================================================
+  # Properties
+  # =========================================================================
+  /properties:
+    get:
+      operationId: listProperties
+      tags: [Properties]
+      summary: List and search properties
+      description: |
+        Primary property search endpoint supporting 40+ filter parameters.
+        Returns `PropertySummary` objects for list performance. Use
+        `/properties/{id}` for full detail.
+
+        Queries the consolidated `bmn_properties` table (see ADR-003) for
+        optimal single-table performance.
+
+        Implementation: Phase 3
+      security: []
+      parameters:
+        # Pagination
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        # Sort
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum:
+              - price_asc
+              - price_desc
+              - date_listed
+              - date_updated
+              - sqft_asc
+              - sqft_desc
+              - beds_desc
+              - distance
+            default: date_listed
+        # Location filters
+        - name: city
+          in: query
+          description: City name (exact match or comma-separated list)
+          schema:
+            type: string
+          example: Boston
+        - name: neighborhood
+          in: query
+          description: Neighborhood name
+          schema:
+            type: string
+        - name: zip
+          in: query
+          description: Zip code (exact match or comma-separated list)
+          schema:
+            type: string
+          example: "02116"
+        - name: county
+          in: query
+          description: County name
+          schema:
+            type: string
+        - name: lat
+          in: query
+          description: Latitude for radius search (requires lng and radius)
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          description: Longitude for radius search (requires lat and radius)
+          schema:
+            type: number
+            format: double
+        - name: radius
+          in: query
+          description: Radius in miles for geo search (requires lat and lng)
+          schema:
+            type: number
+            format: double
+            default: 5
+        - name: bounds
+          in: query
+          description: Map bounds as "south,west,north,east" for viewport search
+          schema:
+            type: string
+          example: "42.33,-71.09,42.37,-71.04"
+        # Price filters
+        - name: price_min
+          in: query
+          description: Minimum listing price
+          schema:
+            type: integer
+        - name: price_max
+          in: query
+          description: Maximum listing price
+          schema:
+            type: integer
+        # Property characteristics
+        - name: beds_min
+          in: query
+          description: Minimum bedrooms
+          schema:
+            type: integer
+        - name: beds_max
+          in: query
+          description: Maximum bedrooms
+          schema:
+            type: integer
+        - name: baths_min
+          in: query
+          description: Minimum bathrooms
+          schema:
+            type: number
+            format: double
+        - name: baths_max
+          in: query
+          description: Maximum bathrooms
+          schema:
+            type: number
+            format: double
+        - name: sqft_min
+          in: query
+          description: Minimum square footage
+          schema:
+            type: integer
+        - name: sqft_max
+          in: query
+          description: Maximum square footage
+          schema:
+            type: integer
+        - name: lot_size_min
+          in: query
+          description: Minimum lot size in acres
+          schema:
+            type: number
+            format: double
+        - name: lot_size_max
+          in: query
+          description: Maximum lot size in acres
+          schema:
+            type: number
+            format: double
+        - name: year_built_min
+          in: query
+          description: Minimum year built
+          schema:
+            type: integer
+        - name: year_built_max
+          in: query
+          description: Maximum year built
+          schema:
+            type: integer
+        - name: garages_min
+          in: query
+          description: Minimum garage spaces
+          schema:
+            type: integer
+        # Property type and status
+        - name: property_type
+          in: query
+          description: Property type (comma-separated for multiple)
+          schema:
+            type: string
+          example: "Single Family,Condo"
+        - name: status
+          in: query
+          description: Listing status
+          schema:
+            type: string
+            enum:
+              - active
+              - pending
+              - coming_soon
+            default: active
+        # Features
+        - name: waterfront
+          in: query
+          description: Waterfront properties only
+          schema:
+            type: boolean
+        - name: pool
+          in: query
+          description: Properties with pool
+          schema:
+            type: boolean
+        - name: new_construction
+          in: query
+          description: New construction only
+          schema:
+            type: boolean
+        - name: open_house
+          in: query
+          description: Properties with upcoming open houses
+          schema:
+            type: boolean
+        - name: virtual_tour
+          in: query
+          description: Properties with virtual tours
+          schema:
+            type: boolean
+        # Financial filters
+        - name: hoa_max
+          in: query
+          description: Maximum monthly HOA fee
+          schema:
+            type: integer
+        - name: tax_max
+          in: query
+          description: Maximum annual property tax
+          schema:
+            type: integer
+        # Date filters
+        - name: listed_after
+          in: query
+          description: Listed on or after this date (ISO 8601)
+          schema:
+            type: string
+            format: date
+        - name: listed_before
+          in: query
+          description: Listed on or before this date (ISO 8601)
+          schema:
+            type: string
+            format: date
+        - name: updated_since
+          in: query
+          description: Updated since timestamp (for incremental sync)
+          schema:
+            type: string
+            format: date-time
+        # School filters
+        - name: school_grade
+          in: query
+          description: Minimum school grade in area
+          schema:
+            type: string
+            enum: [A+, A, A-, B+, B, B-, C+, C]
+        - name: school_district
+          in: query
+          description: School district ID
+          schema:
+            type: integer
+        # Text search
+        - name: q
+          in: query
+          description: Free text search (address, MLS number, remarks)
+          schema:
+            type: string
+        # Listing identification
+        - name: listing_id
+          in: query
+          description: MLS listing number (exact match or comma-separated)
+          schema:
+            type: string
+        # Exclusive listings
+        - name: exclusive
+          in: query
+          description: Include exclusive (non-MLS) listings
+          schema:
+            type: boolean
+            default: true
+        # Response control
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in response
+          schema:
+            type: string
+          example: "listing_id,address,price,beds,baths,sqft,photo_url"
+      responses:
+        '200':
+          description: Successful property search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PropertySummary'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /properties/{id}:
+    get:
+      operationId: getProperty
+      tags: [Properties]
+      summary: Get property detail
+      description: |
+        Returns full property detail including all fields, photos, features,
+        and related data. The `id` parameter is the `listing_id` (MLS number),
+        NOT the internal database key.
+
+        Implementation: Phase 3
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: MLS listing ID (e.g., "73312345")
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Property detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Property'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /properties/{id}/history:
+    get:
+      operationId: getPropertyHistory
+      tags: [Properties]
+      summary: Get property price history
+      description: |
+        Returns price change history for a property, including listing date,
+        price changes, and status changes.
+
+        Implementation: Phase 3
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: MLS listing ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Price history entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PriceHistoryEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =========================================================================
+  # Search
+  # =========================================================================
+  /search/autocomplete:
+    get:
+      operationId: autocomplete
+      tags: [Search]
+      summary: Autocomplete suggestions
+      description: |
+        Returns autocomplete suggestions for the search bar. Matches against
+        cities, neighborhoods, zip codes, addresses, and MLS numbers.
+
+        Implementation: Phase 3
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Partial search query (minimum 2 characters)
+          schema:
+            type: string
+            minLength: 2
+          example: "Back B"
+        - name: limit
+          in: query
+          description: Maximum number of suggestions
+          schema:
+            type: integer
+            default: 10
+            maximum: 25
+      responses:
+        '200':
+          description: Autocomplete suggestions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AutocompleteSuggestion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /filter-options:
+    get:
+      operationId: getFilterOptions
+      tags: [Search]
+      summary: Available filter values
+      description: |
+        Returns the current set of available filter values derived from active
+        listings. Used to populate dropdowns and filter UIs. Cached heavily.
+
+        Implementation: Phase 3
+      security: []
+      responses:
+        '200':
+          description: Available filter values
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FilterOptions'
+
+  # =========================================================================
+  # Auth
+  # =========================================================================
+  /auth/login:
+    post:
+      operationId: login
+      tags: [Auth]
+      summary: Login with email and password
+      description: |
+        Authenticates a user and returns a JWT access token and refresh token.
+
+        Implementation: Phase 4
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                device_token:
+                  type: string
+                  description: iOS push notification device token (optional)
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [Auth]
+      summary: Register a new user
+      description: |
+        Creates a new user account and returns JWT tokens. Sends a welcome
+        email and optionally subscribes to notifications.
+
+        Implementation: Phase 4
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                phone:
+                  type: string
+                  description: Phone number (optional)
+                device_token:
+                  type: string
+                  description: iOS push notification device token (optional)
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [Auth]
+      summary: Refresh JWT token
+      description: |
+        Exchanges a valid refresh token for a new access token and refresh
+        token pair. The old refresh token is invalidated.
+
+        Implementation: Phase 4
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [Auth]
+      summary: Get current user profile
+      description: |
+        Returns the authenticated user's profile information.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [Auth]
+      summary: Request password reset
+      description: |
+        Sends a password reset email to the user. Always returns 200 to prevent
+        email enumeration.
+
+        Implementation: Phase 4
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (or user does not exist, same response)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: If an account exists with that email, a reset link has been sent.
+
+  /auth/account:
+    delete:
+      operationId: deleteAccount
+      tags: [Auth]
+      summary: Delete user account
+      description: |
+        Permanently deletes the authenticated user's account and all associated
+        data (favorites, saved searches, notifications, appointments). This
+        action is irreversible.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+                  description: Must be true to confirm deletion
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Account deleted successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # =========================================================================
+  # Favorites
+  # =========================================================================
+  /favorites:
+    get:
+      operationId: listFavorites
+      tags: [Favorites]
+      summary: List user's favorite properties
+      description: |
+        Returns the authenticated user's favorited properties as
+        `PropertySummary` objects with pagination.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Favorite properties
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PropertySummary'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: addFavorite
+      tags: [Favorites]
+      summary: Add a property to favorites
+      description: |
+        Adds a property to the authenticated user's favorites. Idempotent:
+        adding an already-favorited property is a no-op that returns 200.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listing_id]
+              properties:
+                listing_id:
+                  type: string
+                  description: MLS listing ID
+                  example: "73312345"
+      responses:
+        '200':
+          description: Favorite added (or already existed)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          listing_id:
+                            type: string
+                          favorited_at:
+                            type: string
+                            format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /favorites/{listing_id}:
+    delete:
+      operationId: removeFavorite
+      tags: [Favorites]
+      summary: Remove a property from favorites
+      description: |
+        Removes a property from the authenticated user's favorites. Idempotent:
+        removing a non-favorited property returns 200.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: listing_id
+          in: path
+          required: true
+          description: MLS listing ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Favorite removed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Favorite removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # =========================================================================
+  # Saved Searches
+  # =========================================================================
+  /saved-searches:
+    get:
+      operationId: listSavedSearches
+      tags: [SavedSearches]
+      summary: List user's saved searches
+      description: |
+        Returns the authenticated user's saved search criteria.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Saved searches
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SavedSearch'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: createSavedSearch
+      tags: [SavedSearches]
+      summary: Create a saved search
+      description: |
+        Saves a set of search criteria. When `notifications_enabled` is true,
+        the user receives push notifications when new listings match.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, criteria]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                  example: Back Bay condos under 800k
+                criteria:
+                  type: object
+                  description: Search parameters (same keys as GET /properties query params)
+                  additionalProperties: true
+                  example:
+                    city: Boston
+                    neighborhood: Back Bay
+                    property_type: Condo
+                    price_max: 800000
+                    beds_min: 2
+                notifications_enabled:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Saved search created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedSearch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /saved-searches/{id}:
+    put:
+      operationId: updateSavedSearch
+      tags: [SavedSearches]
+      summary: Update a saved search
+      description: |
+        Updates the name, criteria, or notification preference for a saved
+        search. Partial updates are supported.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Saved search ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                criteria:
+                  type: object
+                  additionalProperties: true
+                notifications_enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Saved search updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedSearch'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      operationId: deleteSavedSearch
+      tags: [SavedSearches]
+      summary: Delete a saved search
+      description: |
+        Permanently deletes a saved search and its notification subscription.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Saved search ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Saved search deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Saved search deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =========================================================================
+  # Notifications
+  # =========================================================================
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [Notifications]
+      summary: List user notifications
+      description: |
+        Returns the authenticated user's notifications, newest first.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: unread_only
+          in: query
+          description: Only return unread notifications
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Notification'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/read:
+    post:
+      operationId: markNotificationsRead
+      tags: [Notifications]
+      summary: Mark notifications as read
+      description: |
+        Marks one or more notifications as read. Pass specific IDs or use
+        `all: true` to mark all as read.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: Notification IDs to mark as read
+                all:
+                  type: boolean
+                  description: Mark all notifications as read
+                  default: false
+      responses:
+        '200':
+          description: Notifications marked as read
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          updated_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/dismiss:
+    post:
+      operationId: dismissNotification
+      tags: [Notifications]
+      summary: Dismiss a notification
+      description: |
+        Dismisses (soft-deletes) a notification so it no longer appears in
+        the user's notification list.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: integer
+                  description: Notification ID to dismiss
+      responses:
+        '200':
+          description: Notification dismissed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Notification dismissed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/badge-count:
+    get:
+      operationId: getNotificationBadgeCount
+      tags: [Notifications]
+      summary: Get unread notification count
+      description: |
+        Returns the count of unread notifications for the badge UI. Lightweight
+        endpoint designed for frequent polling.
+
+        Implementation: Phase 4
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Badge count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                            example: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # =========================================================================
+  # Schools
+  # =========================================================================
+  /schools:
+    get:
+      operationId: listSchools
+      tags: [Schools]
+      summary: List and search schools
+      description: |
+        Search and filter schools by name, city, grade level, rating, and
+        district. Returns ranked school data with composite scores.
+
+        Implementation: Phase 5
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: q
+          in: query
+          description: Search by school name
+          schema:
+            type: string
+        - name: city
+          in: query
+          description: Filter by city
+          schema:
+            type: string
+        - name: level
+          in: query
+          description: School level
+          schema:
+            type: string
+            enum: [elementary, middle, high]
+        - name: grade_min
+          in: query
+          description: Minimum letter grade (e.g., B+)
+          schema:
+            type: string
+        - name: district_id
+          in: query
+          description: Filter by district ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Schools list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/School'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+
+  /schools/{id}:
+    get:
+      operationId: getSchool
+      tags: [Schools]
+      summary: Get school detail
+      description: |
+        Returns full school detail including test scores, enrollment data,
+        and nearby properties.
+
+        Implementation: Phase 5
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: School ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: School detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/School'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schools/nearby:
+    get:
+      operationId: getNearbySchools
+      tags: [Schools]
+      summary: Find schools near a location
+      description: |
+        Returns schools within a given radius of a latitude/longitude point.
+        Useful for showing schools near a property.
+
+        Implementation: Phase 5
+      security: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: Latitude
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          required: true
+          description: Longitude
+          schema:
+            type: number
+            format: double
+        - name: radius
+          in: query
+          description: Radius in miles
+          schema:
+            type: number
+            format: double
+            default: 3
+        - name: level
+          in: query
+          description: Filter by school level
+          schema:
+            type: string
+            enum: [elementary, middle, high]
+        - name: limit
+          in: query
+          description: Maximum results
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Nearby schools
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/School'
+                            - type: object
+                              properties:
+                                distance_miles:
+                                  type: number
+                                  format: double
+                                  description: Distance from the query point
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /schools/compare:
+    get:
+      operationId: compareSchools
+      tags: [Schools]
+      summary: Compare multiple schools
+      description: |
+        Returns side-by-side comparison data for up to 5 schools.
+
+        Implementation: Phase 5
+      security: []
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated school IDs (2-5)
+          schema:
+            type: string
+          example: "101,205,309"
+      responses:
+        '200':
+          description: School comparison data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/School'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /districts:
+    get:
+      operationId: listDistricts
+      tags: [Schools]
+      summary: List school districts
+      description: |
+        Returns all school districts with summary ratings.
+
+        Implementation: Phase 5
+      security: []
+      parameters:
+        - name: city
+          in: query
+          description: Filter by city
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Districts list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/District'
+
+  /districts/{id}:
+    get:
+      operationId: getDistrict
+      tags: [Schools]
+      summary: Get district detail
+      description: |
+        Returns district detail including all schools within the district.
+
+        Implementation: Phase 5
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: District ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: District detail with schools
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/District'
+                          - type: object
+                            properties:
+                              schools:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/School'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =========================================================================
+  # Appointments
+  # =========================================================================
+  /appointments:
+    get:
+      operationId: listAppointments
+      tags: [Appointments]
+      summary: List user's appointments
+      description: |
+        Returns the authenticated user's appointments. Agents see appointments
+        for all their clients; regular users see only their own.
+
+        Implementation: Phase 6
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [upcoming, past, cancelled]
+        - name: from
+          in: query
+          description: Start date filter (ISO 8601)
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: End date filter (ISO 8601)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Appointments list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: bookAppointment
+      tags: [Appointments]
+      summary: Book an appointment
+      description: |
+        Books a property showing appointment. Validates against agent
+        availability and sends confirmation to both parties.
+
+        Implementation: Phase 6
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listing_id, date, time]
+              properties:
+                listing_id:
+                  type: string
+                  description: MLS listing ID for the property
+                date:
+                  type: string
+                  format: date
+                  description: Requested date
+                time:
+                  type: string
+                  description: Requested time (HH:MM format, Eastern)
+                  example: "14:30"
+                agent_id:
+                  type: integer
+                  description: Preferred agent (optional, auto-assigned if omitted)
+                notes:
+                  type: string
+                  maxLength: 500
+                  description: Additional notes from the user
+      responses:
+        '201':
+          description: Appointment booked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Appointment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Time slot unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /appointments/{id}:
+    put:
+      operationId: updateAppointment
+      tags: [Appointments]
+      summary: Update an appointment
+      description: |
+        Reschedules or updates an appointment. Sends update notifications
+        to all parties.
+
+        Implementation: Phase 6
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Appointment ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  format: date
+                time:
+                  type: string
+                  example: "15:00"
+                notes:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Appointment updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Appointment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Time slot unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      operationId: cancelAppointment
+      tags: [Appointments]
+      summary: Cancel an appointment
+      description: |
+        Cancels an appointment and sends cancellation notifications to all
+        parties.
+
+        Implementation: Phase 6
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Appointment ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Appointment cancelled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Appointment cancelled.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /availability:
+    get:
+      operationId: getAvailability
+      tags: [Appointments]
+      summary: Get available appointment slots
+      description: |
+        Returns available time slots for a given date range and optional agent.
+        Used to populate the appointment booking calendar.
+
+        Implementation: Phase 6
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Start date (ISO 8601)
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: End date (ISO 8601, max 14 days from start)
+          schema:
+            type: string
+            format: date
+        - name: agent_id
+          in: query
+          description: Specific agent (optional)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Available slots
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                            slots:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  time:
+                                    type: string
+                                    example: "10:00"
+                                  agent_id:
+                                    type: integer
+                                  agent_name:
+                                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # =========================================================================
+  # Agents
+  # =========================================================================
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [Agents]
+      summary: List agents
+      description: |
+        Returns the list of agents. Public endpoint.
+
+        Implementation: Phase 7
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Agents list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Agent'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+
+  /agents/{id}:
+    get:
+      operationId: getAgent
+      tags: [Agents]
+      summary: Get agent detail
+      description: |
+        Returns full agent profile including bio, specialties, and
+        recent listings.
+
+        Implementation: Phase 7
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Agent ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Agent detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Agent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /agents/my-clients:
+    get:
+      operationId: listAgentClients
+      tags: [Agents]
+      summary: List agent's clients
+      description: |
+        Returns the authenticated agent's client list with engagement data.
+        Agent role required.
+
+        Implementation: Phase 7
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [name, last_active, engagement_score]
+            default: last_active
+      responses:
+        '200':
+          description: Client list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AgentClient'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /agents/share:
+    post:
+      operationId: shareProperty
+      tags: [Agents]
+      summary: Share a property with a client
+      description: |
+        Allows an agent to share a property listing with one of their clients
+        via push notification and/or email. Agent role required.
+
+        Implementation: Phase 7
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listing_id, client_id]
+              properties:
+                listing_id:
+                  type: string
+                  description: MLS listing ID
+                client_id:
+                  type: integer
+                  description: Client user ID
+                message:
+                  type: string
+                  maxLength: 500
+                  description: Personal note from the agent
+                channels:
+                  type: array
+                  items:
+                    type: string
+                    enum: [push, email]
+                  default: [push, email]
+      responses:
+        '200':
+          description: Property shared
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Property shared with client.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /agents/engagement:
+    get:
+      operationId: getClientEngagement
+      tags: [Agents]
+      summary: Get client engagement scores
+      description: |
+        Returns engagement metrics for the agent's clients, including search
+        activity, favorites, and appointment history. Agent role required.
+
+        Implementation: Phase 7
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          description: Time period for metrics
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+            default: 30d
+      responses:
+        '200':
+          description: Engagement data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            client_id:
+                              type: integer
+                            client_name:
+                              type: string
+                            engagement_score:
+                              type: number
+                              format: double
+                              description: 0-100 composite score
+                            searches_count:
+                              type: integer
+                            favorites_count:
+                              type: integer
+                            appointments_count:
+                              type: integer
+                            last_active:
+                              type: string
+                              format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # =========================================================================
+  # CMA
+  # =========================================================================
+  /cma/generate:
+    post:
+      operationId: generateCMA
+      tags: [CMA]
+      summary: Generate a CMA report
+      description: |
+        Generates a Comparative Market Analysis report for a subject property.
+        Finds comparable properties based on criteria and calculates estimated
+        value. This is an async operation; poll the returned ID for status.
+
+        Implementation: Phase 8
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject_listing_id]
+              properties:
+                subject_listing_id:
+                  type: string
+                  description: MLS listing ID of the subject property
+                radius_miles:
+                  type: number
+                  format: double
+                  default: 1
+                  description: Search radius for comparables
+                months_back:
+                  type: integer
+                  default: 6
+                  description: How far back to look for sold comparables
+                adjustments:
+                  type: object
+                  description: Manual value adjustments (optional)
+                  properties:
+                    per_sqft:
+                      type: number
+                    per_bedroom:
+                      type: number
+                    per_bathroom:
+                      type: number
+      responses:
+        '202':
+          description: CMA generation started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            description: CMA report ID
+                          status:
+                            type: string
+                            enum: [generating, complete, failed]
+                            example: generating
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cma/{id}:
+    get:
+      operationId: getCMA
+      tags: [CMA]
+      summary: Get a CMA report
+      description: |
+        Returns the CMA report data including subject property, comparables,
+        adjustments, and estimated value range.
+
+        Implementation: Phase 8
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: CMA report ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: CMA report
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CMAReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /cma/{id}/pdf:
+    get:
+      operationId: getCMAPdf
+      tags: [CMA]
+      summary: Download CMA report as PDF
+      description: |
+        Returns the CMA report as a downloadable PDF document.
+
+        Implementation: Phase 8
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: CMA report ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =========================================================================
+  # Analytics
+  # =========================================================================
+  /analytics/event:
+    post:
+      operationId: trackEvent
+      tags: [Analytics]
+      summary: Track an analytics event
+      description: |
+        Records a user interaction event for analytics. Accepts events from
+        both authenticated and anonymous users.
+
+        Implementation: Phase 8
+      security:
+        - bearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event]
+              properties:
+                event:
+                  type: string
+                  description: Event name
+                  example: property_view
+                properties:
+                  type: object
+                  description: Event-specific data
+                  additionalProperties: true
+                  example:
+                    listing_id: "73312345"
+                    source: search_results
+                session_id:
+                  type: string
+                  description: Client-generated session identifier
+      responses:
+        '202':
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Event recorded.
+
+  /analytics/dashboard:
+    get:
+      operationId: getAnalyticsDashboard
+      tags: [Analytics]
+      summary: Get analytics dashboard data
+      description: |
+        Returns aggregated analytics data for the admin dashboard. Requires
+        admin or agent role.
+
+        Implementation: Phase 8
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          description: Time period
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+            default: 30d
+        - name: metrics
+          in: query
+          description: Comma-separated metric names to include
+          schema:
+            type: string
+          example: page_views,searches,registrations,appointments
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        description: Dashboard metrics (shape varies by requested metrics)
+                        additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+components:
+
+  # =========================================================================
+  # Security Schemes
+  # =========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token obtained from `/auth/login` or `/auth/register`.
+        Include in the Authorization header: `Bearer <token>`
+
+  # =========================================================================
+  # Reusable Parameters
+  # =========================================================================
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPage:
+      name: per_page
+      in: query
+      description: Results per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # =========================================================================
+  # Reusable Responses
+  # =========================================================================
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: UNAUTHORIZED
+              message: Invalid or expired token.
+              details: null
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: FORBIDDEN
+              message: You do not have permission to access this resource.
+              details: null
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: NOT_FOUND
+              message: The requested resource was not found.
+              details: null
+
+  # =========================================================================
+  # Schemas
+  # =========================================================================
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Standard Response Wrapper
+    # -----------------------------------------------------------------------
+    ApiResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+          example: true
+        data:
+          description: Response payload (type varies by endpoint)
+        meta:
+          type: object
+          description: Response metadata (pagination, timing, etc.)
+          properties:
+            request_id:
+              type: string
+              format: uuid
+              description: Unique request identifier for debugging
+            duration_ms:
+              type: integer
+              description: Server-side processing time in milliseconds
+
+    PaginationMeta:
+      type: object
+      required: [total, page, per_page, pages]
+      properties:
+        total:
+          type: integer
+          description: Total number of results
+          example: 1247
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        per_page:
+          type: integer
+          description: Results per page
+          example: 20
+        pages:
+          type: integer
+          description: Total number of pages
+          example: 63
+        request_id:
+          type: string
+          format: uuid
+          description: Unique request identifier for debugging
+        duration_ms:
+          type: integer
+          description: Server-side processing time in milliseconds
+
+    # -----------------------------------------------------------------------
+    # Error
+    # -----------------------------------------------------------------------
+    Error:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          example: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: INVALID_PARAMETER
+              enum:
+                - VALIDATION_ERROR
+                - INVALID_PARAMETER
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+            message:
+              type: string
+              description: Human-readable error message
+              example: The 'price_min' parameter must be a positive integer.
+            details:
+              description: Additional error context (field-level errors, etc.)
+              oneOf:
+                - type: object
+                  additionalProperties: true
+                - type: 'null'
+              example:
+                field: price_min
+                value: "-100"
+                constraint: must be a positive integer
+
+    # -----------------------------------------------------------------------
+    # Auth
+    # -----------------------------------------------------------------------
+    AuthTokens:
+      type: object
+      required: [access_token, refresh_token, expires_in, user]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: Refresh token for obtaining new access tokens
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds
+          example: 3600
+        token_type:
+          type: string
+          enum: [Bearer]
+          default: Bearer
+        user:
+          $ref: '#/components/schemas/User'
+
+    # -----------------------------------------------------------------------
+    # User
+    # -----------------------------------------------------------------------
+    User:
+      type: object
+      required: [id, email, name, role]
+      properties:
+        id:
+          type: integer
+          description: User ID
+          example: 42
+        email:
+          type: string
+          format: email
+          description: Email address
+          example: jane@example.com
+        name:
+          type: string
+          description: Display name
+          example: Jane Smith
+        role:
+          type: string
+          description: User role
+          enum: [user, agent, admin]
+          example: user
+        phone:
+          type: string
+          description: Phone number (optional)
+          example: "617-555-0123"
+        avatar_url:
+          type: string
+          format: uri
+          description: Profile photo URL
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+
+    # -----------------------------------------------------------------------
+    # Property (full detail)
+    # -----------------------------------------------------------------------
+    Property:
+      type: object
+      required:
+        - id
+        - listing_id
+        - address
+        - city
+        - state
+        - zip
+        - price
+        - status
+      properties:
+        id:
+          type: integer
+          description: Internal database ID
+        listing_id:
+          type: string
+          description: MLS listing number (used in URLs and API references)
+          example: "73312345"
+        listing_key:
+          type: string
+          description: MLS listing key hash (internal use only, not for URLs)
+        # Location
+        address:
+          type: string
+          example: 123 Beacon Street
+        unit:
+          type: string
+          example: "#4B"
+        city:
+          type: string
+          example: Boston
+        state:
+          type: string
+          example: MA
+        zip:
+          type: string
+          example: "02116"
+        county:
+          type: string
+          example: Suffolk
+        neighborhood:
+          type: string
+          example: Back Bay
+        latitude:
+          type: number
+          format: double
+          example: 42.3541
+        longitude:
+          type: number
+          format: double
+          example: -71.0702
+        # Pricing
+        price:
+          type: integer
+          description: Current listing price in dollars
+          example: 749000
+        original_price:
+          type: integer
+          description: Original listing price
+          example: 799000
+        price_per_sqft:
+          type: number
+          format: double
+          description: Price per square foot
+          example: 625.83
+        # Characteristics
+        beds:
+          type: integer
+          description: Number of bedrooms
+          example: 2
+        baths:
+          type: number
+          format: double
+          description: Number of bathrooms (supports half-baths as .5)
+          example: 2.5
+        sqft:
+          type: integer
+          description: Living area square footage
+          example: 1197
+        lot_size:
+          type: number
+          format: double
+          description: Lot size in acres
+        year_built:
+          type: integer
+          example: 1890
+        garages:
+          type: integer
+          description: Number of garage spaces
+        stories:
+          type: number
+          format: double
+        property_type:
+          type: string
+          description: Property type classification
+          example: Condo
+        property_subtype:
+          type: string
+          example: Garden/Basement
+        # Status and dates
+        status:
+          type: string
+          enum: [active, pending, coming_soon, sold, expired, withdrawn]
+          example: active
+        list_date:
+          type: string
+          format: date
+          description: Date first listed
+          example: "2026-01-15"
+        update_date:
+          type: string
+          format: date-time
+          description: Last MLS update timestamp
+        dom:
+          type: integer
+          description: Days on market
+          example: 32
+        # Financial
+        hoa_fee:
+          type: integer
+          description: Monthly HOA fee in dollars
+          example: 450
+        tax_amount:
+          type: integer
+          description: Annual property tax in dollars
+          example: 8500
+        tax_year:
+          type: integer
+          description: Tax assessment year
+        # Features (JSON-sourced)
+        features:
+          type: array
+          items:
+            type: string
+          description: Property features list
+          example: ["Central Air", "Hardwood Floors", "In-Unit Laundry"]
+        amenities:
+          type: array
+          items:
+            type: string
+          description: Building/community amenities
+          example: ["Doorman", "Elevator", "Gym", "Roof Deck"]
+        appliances:
+          type: array
+          items:
+            type: string
+        heating:
+          type: string
+          example: Forced Air
+        cooling:
+          type: string
+          example: Central Air
+        waterfront:
+          type: boolean
+        pool:
+          type: boolean
+        new_construction:
+          type: boolean
+        # Media
+        photos:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+              caption:
+                type: string
+              order:
+                type: integer
+          description: Property photos ordered by display preference
+        photo_count:
+          type: integer
+          description: Total number of photos
+        virtual_tour_url:
+          type: string
+          format: uri
+          description: Virtual tour link (if available)
+        # Text
+        remarks:
+          type: string
+          description: Agent remarks / property description
+        directions:
+          type: string
+          description: Driving directions
+        # Agent
+        listing_agent:
+          type: string
+          description: Listing agent name
+        listing_office:
+          type: string
+          description: Listing office name
+        # Open house
+        open_houses:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              start_time:
+                type: string
+                example: "12:00"
+              end_time:
+                type: string
+                example: "14:00"
+              type:
+                type: string
+                enum: [public, broker]
+        # Related data
+        nearby_schools:
+          type: array
+          items:
+            $ref: '#/components/schemas/School'
+          description: Schools near this property (included on detail view)
+        is_favorited:
+          type: boolean
+          description: Whether the current user has favorited this property (requires auth)
+        is_exclusive:
+          type: boolean
+          description: Whether this is a BMN exclusive (non-MLS) listing
+
+    # -----------------------------------------------------------------------
+    # PropertySummary (lightweight for list results)
+    # -----------------------------------------------------------------------
+    PropertySummary:
+      type: object
+      required:
+        - listing_id
+        - address
+        - city
+        - state
+        - zip
+        - price
+        - status
+      properties:
+        listing_id:
+          type: string
+          example: "73312345"
+        address:
+          type: string
+          example: 123 Beacon Street
+        unit:
+          type: string
+        city:
+          type: string
+          example: Boston
+        state:
+          type: string
+          example: MA
+        zip:
+          type: string
+          example: "02116"
+        neighborhood:
+          type: string
+        price:
+          type: integer
+          example: 749000
+        original_price:
+          type: integer
+        beds:
+          type: integer
+          example: 2
+        baths:
+          type: number
+          format: double
+          example: 2.5
+        sqft:
+          type: integer
+          example: 1197
+        property_type:
+          type: string
+          example: Condo
+        status:
+          type: string
+          enum: [active, pending, coming_soon]
+        list_date:
+          type: string
+          format: date
+        dom:
+          type: integer
+          description: Days on market
+        photo_url:
+          type: string
+          format: uri
+          description: Primary photo thumbnail URL
+        photo_count:
+          type: integer
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        has_virtual_tour:
+          type: boolean
+        has_open_house:
+          type: boolean
+        is_favorited:
+          type: boolean
+          description: Whether the current user has favorited this (null if unauthenticated)
+        is_exclusive:
+          type: boolean
+
+    # -----------------------------------------------------------------------
+    # Price History
+    # -----------------------------------------------------------------------
+    PriceHistoryEntry:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        event:
+          type: string
+          enum: [listed, price_change, pending, sold, withdrawn, relisted]
+        price:
+          type: integer
+        change_amount:
+          type: integer
+          description: Change from previous price (negative = reduction)
+        change_percent:
+          type: number
+          format: double
+        source:
+          type: string
+          example: MLS
+
+    # -----------------------------------------------------------------------
+    # Search Helpers
+    # -----------------------------------------------------------------------
+    AutocompleteSuggestion:
+      type: object
+      required: [type, label, value]
+      properties:
+        type:
+          type: string
+          enum: [city, neighborhood, zip, address, listing_id]
+          description: Suggestion category
+        label:
+          type: string
+          description: Display text
+          example: "Back Bay, Boston, MA"
+        value:
+          type: string
+          description: Value to use in search query
+          example: "Back Bay"
+        count:
+          type: integer
+          description: Number of active listings matching (for location types)
+          example: 187
+
+    FilterOptions:
+      type: object
+      description: Available filter values derived from active listings
+      properties:
+        cities:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+        neighborhoods:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              city:
+                type: string
+              count:
+                type: integer
+        zip_codes:
+          type: array
+          items:
+            type: string
+        property_types:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+        price_range:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+            median:
+              type: integer
+        sqft_range:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        beds_range:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        baths_range:
+          type: object
+          properties:
+            min:
+              type: number
+            max:
+              type: number
+        year_built_range:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        total_active:
+          type: integer
+          description: Total number of active listings
+        last_updated:
+          type: string
+          format: date-time
+          description: When filter options were last refreshed
+
+    # -----------------------------------------------------------------------
+    # School
+    # -----------------------------------------------------------------------
+    School:
+      type: object
+      required: [id, name, level, city]
+      properties:
+        id:
+          type: integer
+          example: 205
+        name:
+          type: string
+          example: Boston Latin School
+        level:
+          type: string
+          enum: [elementary, middle, high]
+          example: high
+        grade:
+          type: string
+          description: Letter grade (A+ through F)
+          example: A
+        city:
+          type: string
+          example: Boston
+        state:
+          type: string
+          example: MA
+        zip:
+          type: string
+          example: "02115"
+        district_id:
+          type: integer
+        district_name:
+          type: string
+          example: Boston Public Schools
+        composite_score:
+          type: number
+          format: double
+          description: Composite quality score (0-100)
+          example: 92.5
+        enrollment:
+          type: integer
+          description: Current enrollment count
+          example: 2427
+        student_teacher_ratio:
+          type: number
+          format: double
+          example: 14.2
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        website:
+          type: string
+          format: uri
+
+    # -----------------------------------------------------------------------
+    # District
+    # -----------------------------------------------------------------------
+    District:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          example: Brookline Public Schools
+        city:
+          type: string
+          example: Brookline
+        state:
+          type: string
+          example: MA
+        grade:
+          type: string
+          description: District overall letter grade
+          example: A
+        composite_score:
+          type: number
+          format: double
+          description: District composite quality score (0-100)
+          example: 88.3
+        school_count:
+          type: integer
+          description: Number of schools in the district
+          example: 12
+        total_enrollment:
+          type: integer
+          example: 7800
+
+    # -----------------------------------------------------------------------
+    # Saved Search
+    # -----------------------------------------------------------------------
+    SavedSearch:
+      type: object
+      required: [id, name, criteria]
+      properties:
+        id:
+          type: integer
+          example: 15
+        name:
+          type: string
+          example: Back Bay condos under 800k
+        criteria:
+          type: object
+          description: Search parameters (same keys as GET /properties query params)
+          additionalProperties: true
+          example:
+            city: Boston
+            neighborhood: Back Bay
+            property_type: Condo
+            price_max: 800000
+            beds_min: 2
+        notifications_enabled:
+          type: boolean
+          description: Whether push notifications are sent for new matches
+          example: true
+        match_count:
+          type: integer
+          description: Current number of active listings matching this search
+          example: 23
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # -----------------------------------------------------------------------
+    # Notification
+    # -----------------------------------------------------------------------
+    Notification:
+      type: object
+      required: [id, type, title, body, read, created_at]
+      properties:
+        id:
+          type: integer
+          example: 1001
+        type:
+          type: string
+          enum:
+            - new_listing
+            - price_change
+            - open_house
+            - appointment_reminder
+            - appointment_confirmed
+            - appointment_cancelled
+            - agent_share
+            - system
+          description: Notification category
+          example: new_listing
+        title:
+          type: string
+          example: New listing matches your search
+        body:
+          type: string
+          example: "123 Beacon St, Boston - $749,000 - 2 bed, 2.5 bath"
+        read:
+          type: boolean
+          description: Whether the notification has been read
+          example: false
+        data:
+          type: object
+          description: Type-specific payload (e.g., listing_id, appointment_id)
+          additionalProperties: true
+          example:
+            listing_id: "73312345"
+            saved_search_id: 15
+        created_at:
+          type: string
+          format: date-time
+
+    # -----------------------------------------------------------------------
+    # Appointment
+    # -----------------------------------------------------------------------
+    Appointment:
+      type: object
+      required: [id, listing_id, date, time, status]
+      properties:
+        id:
+          type: integer
+          example: 500
+        listing_id:
+          type: string
+          description: MLS listing ID
+          example: "73312345"
+        property:
+          $ref: '#/components/schemas/PropertySummary'
+        date:
+          type: string
+          format: date
+          example: "2026-03-01"
+        time:
+          type: string
+          description: Appointment time (HH:MM Eastern)
+          example: "14:30"
+        status:
+          type: string
+          enum: [confirmed, pending, cancelled, completed]
+          example: confirmed
+        agent:
+          $ref: '#/components/schemas/Agent'
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # -----------------------------------------------------------------------
+    # Agent
+    # -----------------------------------------------------------------------
+    Agent:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: integer
+          example: 10
+        name:
+          type: string
+          example: Michael Johnson
+        email:
+          type: string
+          format: email
+          example: michael@bmnboston.com
+        phone:
+          type: string
+          example: "617-555-0199"
+        photo_url:
+          type: string
+          format: uri
+          description: Agent headshot photo
+        bio:
+          type: string
+          description: Agent biography
+        specialties:
+          type: array
+          items:
+            type: string
+          example: ["Back Bay", "South End", "Luxury Condos"]
+        license_number:
+          type: string
+        active_listings_count:
+          type: integer
+          description: Number of currently active listings
+
+    # -----------------------------------------------------------------------
+    # Agent Client (for agent dashboard)
+    # -----------------------------------------------------------------------
+    AgentClient:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        engagement_score:
+          type: number
+          format: double
+          description: 0-100 composite engagement score
+        favorites_count:
+          type: integer
+        saved_searches_count:
+          type: integer
+        appointments_count:
+          type: integer
+        last_active:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    # -----------------------------------------------------------------------
+    # CMA Report
+    # -----------------------------------------------------------------------
+    CMAReport:
+      type: object
+      required: [id, status, subject]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [generating, complete, failed]
+        subject:
+          $ref: '#/components/schemas/PropertySummary'
+        comparables:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/PropertySummary'
+              - type: object
+                properties:
+                  sold_price:
+                    type: integer
+                  sold_date:
+                    type: string
+                    format: date
+                  adjusted_price:
+                    type: integer
+                    description: Price after adjustments
+                  distance_miles:
+                    type: number
+                    format: double
+                  adjustments:
+                    type: object
+                    description: Applied adjustments breakdown
+                    additionalProperties:
+                      type: integer
+        estimated_value:
+          type: object
+          properties:
+            low:
+              type: integer
+              description: Low end of value range
+            mid:
+              type: integer
+              description: Mid-point estimated value
+            high:
+              type: integer
+              description: High end of value range
+            confidence:
+              type: number
+              format: double
+              description: Confidence score (0-1)
+        comparable_count:
+          type: integer
+          description: Number of comparables used
+        search_criteria:
+          type: object
+          properties:
+            radius_miles:
+              type: number
+              format: double
+            months_back:
+              type: integer
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: integer
+          description: User ID who generated the report

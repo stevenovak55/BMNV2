@@ -1,0 +1,63 @@
+name: Deploy to Staging
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, mysql, zip, curl
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wordpress/wp-content/themes/bmn-theme/package-lock.json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        working-directory: wordpress/wp-content/mu-plugins/bmn-platform
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('wordpress/wp-content/mu-plugins/bmn-platform/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies (production)
+        working-directory: wordpress/wp-content/mu-plugins/bmn-platform
+        run: composer install --prefer-dist --no-progress --no-dev --optimize-autoloader
+
+      - name: Install npm dependencies
+        working-directory: wordpress/wp-content/themes/bmn-theme
+        run: npm ci
+
+      - name: Build theme assets
+        working-directory: wordpress/wp-content/themes/bmn-theme
+        run: npm run build
+
+      - name: Deploy to staging server
+        run: echo "Deploy to staging server - TBD"
+
+      - name: Run smoke tests
+        run: echo "Run smoke tests - TBD"

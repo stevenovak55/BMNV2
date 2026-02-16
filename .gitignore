@@ -1,0 +1,66 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Build output
+wordpress/wp-content/themes/bmn-theme/assets/dist/
+wordpress/wp-content/plugins/*/assets/dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+docker-compose.override.yml
+
+# WordPress core (managed by Docker)
+wordpress/wp-admin/
+wordpress/wp-includes/
+wordpress/wp-*.php
+wordpress/index.php
+wordpress/xmlrpc.php
+wordpress/license.txt
+wordpress/readme.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# PHP
+*.phar
+phpunit.xml
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# iOS
+ios/BMNBoston/BMNBoston.xcodeproj/xcuserdata/
+ios/BMNBoston/BMNBoston.xcodeproj/project.xcworkspace/xcuserdata/
+ios/BMNBoston/*.xcworkspace/xcuserdata/
+ios/BMNBoston/DerivedData/
+ios/BMNBoston/build/
+ios/BMNBoston/.build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.xcuserstate
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+ehthumbs.db
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# Temporary
+tmp/
+temp/
+*.tmp

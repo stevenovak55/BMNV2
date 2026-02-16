@@ -1,0 +1,16 @@
+{
+    "name": "bmn-theme",
+    "version": "2.0.0-dev",
+    "private": true,
+    "description": "BMN Boston real estate platform theme",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "devDependencies": {
+        "sass": "^1.77.0",
+        "typescript": "^5.5.0",
+        "vite": "^6.0.0"
+    }
+}

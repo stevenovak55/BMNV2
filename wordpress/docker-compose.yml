@@ -1,0 +1,110 @@
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: bmn-v2-wordpress
+    restart: unless-stopped
+    ports:
+      - "${WP_PORT:-8080}:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-bmn_v2}
+      WORDPRESS_DB_USER: ${MYSQL_USER:-bmn}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-bmn_dev_password}
+      WORDPRESS_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
+      WORDPRESS_DEBUG: "true"
+      WORDPRESS_CONFIG_EXTRA: |
+        /* Debug settings */
+        define('WP_DEBUG', true);
+        define('WP_DEBUG_LOG', true);
+        define('WP_DEBUG_DISPLAY', true);
+        define('SCRIPT_DEBUG', true);
+
+        /* Multisite */
+        define('WP_ALLOW_MULTISITE', true);
+        define('MULTISITE', true);
+        define('SUBDOMAIN_INSTALL', false);
+        define('DOMAIN_CURRENT_SITE', '${WP_DOMAIN:-localhost}');
+        define('PATH_CURRENT_SITE', '/');
+        define('SITE_ID_CURRENT_SITE', 1);
+        define('BLOG_ID_CURRENT_SITE', 1);
+
+        /* Mail - route through Mailhog */
+        define('WORDPRESS_SMTP_HOST', 'mailhog');
+        define('WORDPRESS_SMTP_PORT', 1025);
+
+        /* Filesystem */
+        define('FS_METHOD', 'direct');
+
+        /* Memory */
+        define('WP_MEMORY_LIMIT', '256M');
+        define('WP_MAX_MEMORY_LIMIT', '512M');
+    volumes:
+      - ./wp-content:/var/www/html/wp-content
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bmn-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: bmn-v2-mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bmn_root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bmn_v2}
+      MYSQL_USER: ${MYSQL_USER:-bmn}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bmn_dev_password}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    volumes:
+      - bmn_v2_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-bmn_root_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - bmn-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: bmn-v2-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER:-bmn}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-bmn_dev_password}
+      UPLOAD_LIMIT: 128M
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bmn-network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: bmn-v2-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+    networks:
+      - bmn-network
+
+volumes:
+  bmn_v2_mysql_data:
+    name: bmn_v2_mysql_data
+
+networks:
+  bmn-network:
+    name: bmn-network
+    driver: bridge

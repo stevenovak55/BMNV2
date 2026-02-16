@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php-lint-and-test:
+    name: PHP Lint & Test
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bmn_v2_test
+          MYSQL_CHARACTER_SET_SERVER: utf8mb4
+          MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, mysql, zip, curl
+          coverage: xdebug
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        working-directory: wordpress/wp-content/mu-plugins/bmn-platform
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('wordpress/wp-content/mu-plugins/bmn-platform/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        working-directory: wordpress/wp-content/mu-plugins/bmn-platform
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run PHP_CodeSniffer
+        working-directory: wordpress/wp-content/mu-plugins/bmn-platform
+        run: vendor/bin/phpcs --standard=../../../../shared/config/phpcs.xml
+
+      - name: Check for time() usage (must use current_time)
+        run: |
+          echo "Checking for bare time() calls (should use current_time('timestamp') instead)..."
+          MATCHES=$(grep -rn "time()" --include="*.php" \
+            wordpress/wp-content/mu-plugins/ \
+            wordpress/wp-content/plugins/ || true)
+          # Filter out comments and current_time() calls
+          VIOLATIONS=$(echo "$MATCHES" | grep -v '^\s*//' | grep -v '^\s*\*' | grep -v 'current_time' | grep -v '^$' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Found bare time() usage. Use current_time('timestamp') instead:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+          echo "No bare time() violations found."
+
+      - name: Check for date('Y') usage (year rollover risk)
+        run: |
+          echo "Checking for date('Y') calls (year rollover risk)..."
+          MATCHES=$(grep -rn 'date("Y")\|date('\''Y'\'')' --include="*.php" \
+            wordpress/wp-content/mu-plugins/ \
+            wordpress/wp-content/plugins/ || true)
+          VIOLATIONS=$(echo "$MATCHES" | grep -v '^\s*//' | grep -v '^\s*\*' | grep -v '^$' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Found date('Y') usage (year rollover risk):"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+          echo "No date('Y') violations found."
+
+      - name: Check for listing_key in URL context (must use listing_id)
+        run: |
+          echo "Checking for listing_key in URL context (should use listing_id)..."
+          MATCHES=$(grep -rn 'listing_key' --include="*.php" \
+            wordpress/wp-content/plugins/ || true)
+          # Look for listing_key used in URL-building context
+          VIOLATIONS=$(echo "$MATCHES" | grep -i 'url\|href\|link\|permalink\|route\|redirect' | grep -v '^\s*//' | grep -v '^\s*\*' | grep -v '^$' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Found listing_key used in URL context. Use listing_id (MLS number) instead:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+          echo "No listing_key URL violations found."
+
+      - name: Run PHPUnit
+        working-directory: wordpress/wp-content/mu-plugins/bmn-platform
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: bmn_v2_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: vendor/bin/phpunit --log-junit test-results/phpunit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-test-results
+          path: wordpress/wp-content/mu-plugins/bmn-platform/test-results/
+          retention-days: 30
+
+  ios-build:
+    name: iOS Build
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --config shared/config/.swiftlint.yml --path ios/ --reporter github-actions-logging
+
+      - name: Build iOS project
+        continue-on-error: true
+        run: |
+          xcodebuild \
+            -project ios/BMNBoston/BMNBoston.xcodeproj \
+            -scheme BMNBoston \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            build \
+            2>&1 | tail -50
+          echo "Note: Build failure is allowed while project skeleton is being developed."
+
+  theme-build:
+    name: Theme Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wordpress/wp-content/themes/bmn-theme/package-lock.json
+
+      - name: Install npm dependencies
+        working-directory: wordpress/wp-content/themes/bmn-theme
+        run: npm ci
+
+      - name: Build theme assets
+        working-directory: wordpress/wp-content/themes/bmn-theme
+        run: npm run build
