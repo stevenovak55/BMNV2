@@ -33,6 +33,7 @@ wordpress/readme.html
 *.phar
 phpunit.xml
 .phpunit.result.cache
+.phpunit.cache/
 .php-cs-fixer.cache
 
 # iOS
