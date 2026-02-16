@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BMN\Platform\Core;
 
+use BMN\Platform\Providers\PlatformServiceProvider;
 use RuntimeException;
 
 /**
@@ -34,7 +35,7 @@ final class Application
      * @var list<class-string<ServiceProvider>>
      */
     private array $coreProviders = [
-        // Populated as platform services are implemented.
+        PlatformServiceProvider::class,
     ];
 
     private function __construct()
