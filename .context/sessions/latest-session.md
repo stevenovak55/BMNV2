@@ -1,6 +1,6 @@
 # Session Handoff - 2026-02-16 (Session 3)
 
-## Phase: 2 (Data Pipeline) - COMPLETE
+## Phase: 2 (Data Pipeline) - COMPLETE AND VERIFIED
 
 ## What Was Accomplished This Session
 - Fixed PHP 8.5 deprecation warning (removed `setAccessible(true)` from PropertyRepositoryTest)
@@ -11,6 +11,11 @@
 - **Bug fix:** Deferred `bmn_platform_loaded` action to `plugins_loaded` hook — mu-plugins fire before regular plugins, so the extractor couldn't hook in
 - **Bug fix:** Fixed extractor bootstrap to accept `Application $app` param instead of reading nonexistent `$GLOBALS['bmn_container']`
 - Docker verified: all 8 tables created, REST endpoints working, health check passing, admin dashboard accessible
+
+## Commits This Session
+1. `1f9cc56` — `feat(extractor): Phase 2 - Bridge MLS data pipeline` (tagged `v2.0.0-phase2`)
+2. `7ee9929` — `fix(platform): defer bmn_platform_loaded to plugins_loaded hook`
+3. `da11d53` — `docs: update session handoff with Docker verification results`
 
 ## Phase 2 Summary (Built in Previous Session, Finalized Here)
 
@@ -68,23 +73,31 @@
 - Admin dashboard (`/wp-admin/admin.php?page=bmn-extractor`) → HTTP 200
 
 ## Test Status
-- PHPUnit: 126 tests, 298 assertions, 0 deprecations
+- Extractor: 126 tests, 298 assertions, 0 deprecations
+- Platform: 138 tests, 272 assertions, 1 skipped
 - All PHP files pass `php -l` syntax check
 - Zero forbidden patterns
 
-## What Needs to Happen Next (Phase 3: Core Property System)
-1. Build property search service with filtering and pagination
-2. Implement autocomplete for city, neighborhood, zip, school
-3. Build property detail endpoint (single listing with photos, agent, office)
-4. Create saved search system (criteria storage, match notifications)
-5. Build map-based search with geo bounding box queries
-6. Implement similar/comparable property finder
-7. Create property favorites endpoint
-8. Target: full property search API matching v1 feature set
+## Important Pattern Discovered
+mu-plugins load before regular plugins in WordPress. Any `do_action()` in a mu-plugin must be deferred to `plugins_loaded` (or later) if regular plugins need to hook into it. This is now the standard pattern for `bmn_platform_loaded`.
 
-## Architecture Notes
+## What Needs to Happen Next (Phase 3: Core Property System)
+1. Create `bmn-properties` plugin at `plugins/bmn-properties/`
+2. Build property search service with filtering and pagination
+3. Implement autocomplete for city, neighborhood, zip, school
+4. Build property detail endpoint (single listing with photos, agent, office)
+5. Create saved search system (criteria storage, match notifications)
+6. Build map-based search with geo bounding box queries
+7. Implement similar/comparable property finder
+8. Create property favorites endpoint
+9. Target: full property search API matching v1 feature set
+
+## Architecture Notes for Phase 3
 - `bmn_properties` table is denormalized for search performance (no JOINs needed)
 - Composite indexes on (status, property_type, city) and (status, list_price) for common queries
-- ExtractionEngine supports both full sync and incremental (timestamp-based) sync
-- CronManager registers daily full sync + hourly incremental sync via WP cron
-- All repositories use `$wpdb->prepare()` for SQL injection prevention
+- v1 reference for search logic: `class-mld-mobile-rest-api.php` and `class-mld-shared-query-builder.php`
+- v1 reference for web queries: `class-mld-query.php`
+- The search service must support both REST (iOS) and AJAX (web) via one service (Critical Rule #1)
+- Property URLs must use `listing_id` (MLS number), not `listing_key` (hash) (Critical Rule #4)
+- Use `$wpdb->prepare()` for all dynamic SQL (Critical Rule #6)
+- The `bmn_platform_loaded` action now fires on `plugins_loaded`, so the properties plugin can hook in the same way as the extractor
