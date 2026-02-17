@@ -38,7 +38,15 @@
 - Verified: 969 agents, 708 offices imported
 - 1,996/2,001 properties have photo data (main_photo_url + photo_count)
 - Property search endpoint returns complete real MLS data
-- Media table is empty (individual photo records) - minor issue, not critical
+
+### Data Gap Analysis (V2 vs V1)
+Compared v2 extraction to v1 and identified three critical gaps:
+
+1. **Media table empty** — `wp_bmn_media` has 0 rows. The `ExtractionEngine::processRelatedData()` calls `fetchMediaForListings()` → `normalizeMedia()` → `MediaRepository::replaceForListing()`, but something fails silently. The `main_photo_url` and `photo_count` on `bmn_properties` ARE populated, so media is being fetched but not saved to the media table.
+
+2. **Properties table missing 231 columns** — V2 stores 88 columns in 1 denormalized table. V1 stores 319 columns across 5 normalized tables (bme_listings 74 cols, bme_listing_details 100 cols, bme_listing_location 28 cols, bme_listing_financial 72 cols, bme_listing_features 49 cols). The `DataNormalizer` only maps ~65 API fields and discards the rest. Missing entirely: all 49 property features (pool, waterfront, views, spa, accessibility), 66 financial fields (income, financing, rent, zoning), 82 detail fields (basement, heating/cooling, construction, flooring, appliances), 12 location fields, and all mlspin_* fields.
+
+3. **No spatial/GeoPoint indexing** — V1 uses MySQL `POINT NOT NULL` with `SPATIAL KEY` for fast map bounding-box queries (`MBRContains`, `ST_Within`, `ST_Distance_Sphere`). V2 only stores `latitude DOUBLE` / `longitude DOUBLE` with a basic B-tree index, requiring full table scans for map searches.
 
 ### Test Fixes
 - Fixed `AppointmentsServiceProviderTest` - added `$GLOBALS['wpdb']` for migration tests
@@ -62,25 +70,54 @@
 1. **Missing runMigrations()** — AppointmentsServiceProvider didn't call MigrationRunner in boot(). Tables were never created. Fixed by adding `runMigrations()` method following ExtractorServiceProvider pattern.
 2. **MlgCanView field doesn't exist** — v2 extractor used `MlgCanView eq true` as OData filter, but this field doesn't exist in the Bridge API dataset `shared_mlspin_41854c5`. v1 extractor filters by `StandardStatus`. Fixed to use `(StandardStatus eq 'Active' or StandardStatus eq 'Pending' or StandardStatus eq 'Active Under Contract')`.
 3. **Global $wpdb missing in provider test** — Migrations use `global $wpdb` but tests didn't set it. Fixed by adding `$GLOBALS['wpdb'] = $wpdb` in test setUp.
-4. **Media table empty** — Individual media records (wp_bmn_media) are not being saved despite photo data appearing on properties. The `main_photo_url` and `photo_count` fields on `bmn_properties` are populated correctly. Minor issue for future investigation.
 
-## What Needs to Happen Next
+## What Needs to Happen Next (BEFORE Phase 7)
 
-### Phase 7: Agent-Client System
-1. Agent profiles, specialties, service areas
-2. Client-agent relationships (claiming, referrals)
-3. Property sharing between agents and clients
-4. Referral code system
-5. Agent dashboard REST endpoints
+### Fix 1: Media Table Bug
+Debug why `wp_bmn_media` is empty despite media being fetched. The chain is `ExtractionEngine::processRelatedData()` → `BridgeApiClient::fetchMediaForListings()` → `DataNormalizer::normalizeMedia()` → `MediaRepository::replaceForListing()`. Check Docker debug log: `docker exec bmn-v2-wordpress bash -c 'tail -100 /var/www/html/wp-content/debug.log | grep -i media'`
 
-### Known Minor Issues
-- Media table empty (photos work via main_photo_url on properties)
-- ExtractionController trigger endpoint has auth gap (uses `current_user_can('manage_options')` but route has `auth: false`, so JWT never processes)
+### Fix 2: Expand Property Schema (231 Missing Columns)
+V2's `DataNormalizer` only maps ~65 of the 319+ fields available from the Bridge API. Must expand to match v1 data completeness.
 
-### Future Phases
+**V1 reference files (READ-ONLY):**
+- Schema: `~/Development/BMNBoston/wordpress/wp-content/plugins/bridge-mls-extractor-pro-review/class-bme-database-manager.php`
+- Field mapping: `~/Development/BMNBoston/wordpress/wp-content/plugins/bridge-mls-extractor-pro-review/includes/class-bme-data-processor.php`
+
+**Missing by category:**
+- Features (49 cols): pool, waterfront, views, spa, accessibility, lot features, fencing, community, pets, horse, green energy
+- Financial (66 cols): income analysis, financing, rent details, utility costs, zoning, parcel numbers, tax details
+- Details (82 cols): basement, heating/cooling, construction materials, foundation, roof, sewer/water, insulation, flooring, appliances, laundry, security, floor-by-floor breakdown
+- Location (12 cols): street direction, building name, normalized address, postal code +4
+
+**V2 files to update:**
+- `bmn-extractor/src/Migration/CreatePropertiesTable.php` — add columns (or create new normalized tables)
+- `bmn-extractor/src/Service/DataNormalizer.php` — expand `normalizeProperty()` to map all API fields
+- `bmn-extractor/src/Repository/PropertyRepository.php` — update `upsert()` for new columns
+
+### Fix 3: Add Spatial GeoPoint Indexing
+Add `coordinates POINT` column with `SPATIAL KEY` to `bmn_properties`. Populate from lat/lng during extraction. Update `PropertyRepository` to use spatial queries for map searches.
+
+V1 pattern:
+```sql
+coordinates POINT NOT NULL,
+SPATIAL KEY spatial_coordinates (coordinates)
+```
+V1 insertion: `ST_GeomFromText(CONCAT('POINT(', longitude, ' ', latitude, ')'))` using `REPLACE INTO`
+
+### Constraints
+- All 898 existing tests must continue to pass
+- Don't extract more than 1,000 properties (avoid API rate limiting)
+- Use `$wpdb->prepare()` for all dynamic SQL
+- Reference v1 at ~/Development/BMNBoston/ (READ-ONLY)
+
+### After Extractor Fixes
+- Phase 7: Agent-Client System
 - Phase 8: CMA and Analytics
 - Phase 9: Flip Analyzer
 - Phase 10: Exclusive Listings
 - Phase 11: Theme and Web Frontend
 - Phase 12: iOS App (SwiftUI)
 - Phase 13: Migration and Cutover
+
+### Known Minor Issues
+- ExtractionController trigger endpoint has auth gap (uses `current_user_can('manage_options')` but route has `auth: false`, so JWT never processes)
