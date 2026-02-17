@@ -12,14 +12,144 @@
 | 5 | Schools | Complete | 2026-02-16 | 2026-02-16 | 165/165 | ~85% | Rankings, data import, filter hook, 7 REST endpoints |
 | 6 | Appointments | Complete | 2026-02-16 | 2026-02-17 | 160/160 | ~85% | Booking, availability, notifications, 10 REST endpoints |
 | 7 | Agent-Client System | Complete | 2026-02-17 | 2026-02-17 | 197/197 | ~85% | Profiles, relationships, sharing, referrals, activity, 21 REST endpoints |
-| 8 | CMA and Analytics | Not Started | - | - | - | - | Comparables, tracking |
+| 8 | CMA and Analytics | Complete | 2026-02-17 | 2026-02-17 | 233/233 | ~85% | CMA reports, comparables, adjustments, analytics tracking, 22 REST endpoints |
 | 9 | Flip Analyzer | Not Started | - | - | - | - | Investment analysis |
 | 10 | Exclusive Listings | Not Started | - | - | - | - | Agent-created listings |
 | 11 | Theme and Web Frontend | Not Started | - | - | - | - | Templates, Vite build |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 7 - Agent-Client System - COMPLETE
+## Current Phase: 8 - CMA and Analytics - COMPLETE
+
+### Objectives
+- [x] Build bmn-cma plugin with 4 migrations, 4 repositories, 4 services, 2 controllers, 1 provider
+- [x] Build bmn-analytics plugin with 3 migrations, 3 repositories, 2 services, 2 controllers, 1 provider
+- [x] Implement CMA report generation with comparable search, adjustments, confidence scoring, valuation
+- [x] Implement analytics event tracking, session management, daily aggregation via WP-Cron
+- [x] Write 145 CMA tests (292 assertions) and 88 analytics tests (177 assertions)
+- [x] All 1,342 tests pass across 9 suites (zero regressions)
+- [ ] Docker verification: activate plugins, run migrations, test endpoints
+
+### Deliverables
+
+**bmn-cma plugin:**
+- 16 PHP source files (4 migrations, 4 repositories, 4 services, 2 controllers, 1 provider, 1 bootstrap)
+- 12 test files + 1 test bootstrap (145 tests, 292 assertions)
+- 4 database tables: bmn_cma_reports, bmn_comparables, bmn_cma_value_history, bmn_market_snapshots
+- 13 REST endpoints (10 CMA + 3 market conditions)
+- Haversine-based comparable search with expanding radius tiers (1, 2, 3, 5, 10 mi)
+- FHA-style price adjustments: bedroom 2.5%, bathroom 1%, sqft proportional (10% cap), year built 0.4%/yr (10% cap), garage 2.5%/1.5%, lot 2%/0.25ac (10% cap), gross 40% cap
+- 6-factor confidence scoring (sample size 25pts, data completeness 20pts, market stability 20pts, time relevance 15pts, geographic concentration 10pts, comparability quality 10pts)
+- Comparable grading: A(<10%), B(<15%), C(<25%), D(<35%), F(>=35%)
+- Market conditions service with snapshots and historical trends
+
+**bmn-analytics plugin:**
+- 12 PHP source files (3 migrations, 3 repositories, 2 services, 2 controllers, 1 provider, 1 bootstrap)
+- 9 test files + 1 test bootstrap (88 tests, 177 assertions)
+- 3 database tables: bmn_analytics_events, bmn_analytics_sessions, bmn_analytics_daily
+- 9 REST endpoints (4 tracking + 5 reporting)
+- Event tracking (pageviews, property views, searches) with session management
+- Device detection (mobile/tablet/desktop) and traffic source classification (organic/social/direct/referral)
+- Daily aggregation via WP-Cron with upsert for pre-computed metrics
+- Active visitor count with configurable time window
+
+### Test Breakdown — bmn-cma (145 tests, 292 assertions)
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| MigrationsTest | 11 | ~22 |
+| CmaReportRepositoryTest | 10 | ~20 |
+| ComparableRepositoryTest | 8 | ~16 |
+| ValueHistoryRepositoryTest | 7 | ~14 |
+| MarketSnapshotRepositoryTest | 7 | ~14 |
+| AdjustmentServiceTest | 30 | ~60 |
+| ComparableSearchServiceTest | 9 | ~18 |
+| CmaReportServiceTest | 16 | ~32 |
+| MarketConditionsServiceTest | 8 | ~16 |
+| CmaControllerTest | 20 | ~40 |
+| MarketControllerTest | 8 | ~16 |
+| CmaServiceProviderTest | 11 | ~22 |
+| **Total** | **145** | **292** |
+
+### Test Breakdown — bmn-analytics (88 tests, 177 assertions)
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| MigrationsTest | 7 | ~14 |
+| EventRepositoryTest | 9 | ~18 |
+| SessionRepositoryTest | 8 | ~16 |
+| DailyAggregateRepositoryTest | 7 | ~14 |
+| TrackingServiceTest | 19 | ~38 |
+| ReportingServiceTest | 8 | ~16 |
+| TrackingControllerTest | 10 | ~20 |
+| ReportingControllerTest | 10 | ~20 |
+| AnalyticsServiceProviderTest | 10 | ~20 |
+| **Total** | **88** | **177** |
+
+### CMA REST Endpoints (13)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/bmn/v1/cma` | Yes | Generate CMA report |
+| GET | `/bmn/v1/cma/sessions` | Yes | List user's CMA sessions (paginated) |
+| POST | `/bmn/v1/cma/sessions` | Yes | Save session (alias for generate) |
+| GET | `/bmn/v1/cma/sessions/{id}` | Yes | Get single session with comparables |
+| PUT | `/bmn/v1/cma/sessions/{id}` | Yes | Update session name/mode |
+| DELETE | `/bmn/v1/cma/sessions/{id}` | Yes | Delete session |
+| POST | `/bmn/v1/cma/sessions/{id}/favorite` | Yes | Toggle favorite |
+| GET | `/bmn/v1/cma/comparables/{listing_id}` | Yes | Find comparables for listing |
+| GET | `/bmn/v1/cma/history/{listing_id}` | Yes | Property value history |
+| GET | `/bmn/v1/cma/history/trends` | Yes | Value trend data for charting |
+| GET | `/bmn/v1/market-conditions` | No | Current market conditions |
+| GET | `/bmn/v1/market-conditions/summary` | No | Market summary stats |
+| GET | `/bmn/v1/market-conditions/trends` | No | Historical market trends |
+
+### Analytics REST Endpoints (9)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/bmn/v1/analytics/event` | No | Record a generic event |
+| POST | `/bmn/v1/analytics/pageview` | No | Record a pageview |
+| POST | `/bmn/v1/analytics/property-view` | No | Record a property view |
+| GET | `/bmn/v1/analytics/active-visitors` | Yes | Active visitor count |
+| GET | `/bmn/v1/analytics/trends` | Yes | Trend data for date range |
+| GET | `/bmn/v1/analytics/top-properties` | Yes | Most viewed properties |
+| GET | `/bmn/v1/analytics/top-content` | Yes | Most viewed pages |
+| GET | `/bmn/v1/analytics/traffic-sources` | Yes | Traffic source breakdown |
+| GET | `/bmn/v1/analytics/property/{listing_id}` | Yes | Property-specific stats |
+
+### Architecture
+```
+bmn-cma:
+  CmaController (REST - 10 routes, resource='cma')
+    └── CmaReportService → CmaReportRepository (bmn_cma_reports)
+                          → ComparableRepository (bmn_comparables)
+                          → ValueHistoryRepository (bmn_cma_value_history)
+                          → ComparableSearchService → wpdb (bmn_properties, Haversine)
+                          → AdjustmentService (pure logic, no deps)
+
+  MarketController (REST - 3 routes, resource='market-conditions')
+    └── MarketConditionsService → MarketSnapshotRepository (bmn_market_snapshots)
+
+bmn-analytics:
+  TrackingController (REST - 4 routes, resource='analytics')
+    └── TrackingService → EventRepository (bmn_analytics_events)
+                         → SessionRepository (bmn_analytics_sessions)
+
+  ReportingController (REST - 5 routes, resource='analytics')
+    └── ReportingService → EventRepository
+                          → SessionRepository
+                          → DailyAggregateRepository (bmn_analytics_daily)
+```
+
+### Key Design Decisions
+1. **CMA reads extractor's bmn_properties table** — Comparable search uses Haversine formula directly against the extractor's properties table. No data duplication.
+2. **Pure adjustment logic** — `AdjustmentService` has zero dependencies (no DB, no WP functions). All 6 adjustment types, confidence scoring, and valuation are deterministic and fully unit-testable.
+3. **Expanding radius search** — If initial radius returns fewer comps than `min_comps`, automatically tries radius tiers [1, 2, 3, 5, 10] miles until enough results found.
+4. **Analytics tracking is public** — POST tracking endpoints require no auth so anonymous visitors can be tracked. Only reporting endpoints require auth.
+5. **Daily aggregation via WP-Cron** — `bmn_analytics_daily_aggregate` hook runs daily, pre-computing metrics for fast dashboard queries. Uses UPSERT pattern.
+6. **WP_User stub in test bootstraps** — Defined before platform bootstrap so `wp_set/get_current_user` returns `WP_User` instances (matching `RestController::getCurrentUser()` return type).
+7. **Anonymous class for DatabaseService** — `DatabaseService` is `final`, so provider tests use anonymous class stand-ins with `getWpdb()` method (matching agents pattern).
+
+---
+
+## Previous Phase: 7 - Agent-Client System - COMPLETE
 
 ### Objectives
 - [x] Create 6 database migrations (agent_profiles, relationships, shared_properties, referral_codes, referral_signups, activity_log)

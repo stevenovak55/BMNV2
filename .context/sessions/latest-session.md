@@ -1,80 +1,71 @@
-# Session Handoff - 2026-02-17 (Session 10)
+# Session Handoff - 2026-02-17 (Session 11)
 
-## Phase: 7 - Agent-Client System - COMPLETE
+## Phase: 8 - CMA and Analytics - COMPLETE
 
 ## What Was Accomplished This Session
 
-### Phase 7: Full Implementation (45 files, 197 tests)
-Built the complete agent-client system plugin (`bmn-agents`) in 7 steps:
+### Pre-Phase: Bug Fix
+- Fixed `FilterBuilder::escapeLike()` infinite recursion in bmn-properties (line 111: `$this->escapeLike($value)` → `$this->wpdb->esc_like($value)`)
+- Verified all 1,109 existing tests pass across 7 suites
 
-1. **Scaffold + Migrations** — Updated bootstrap, created phpunit.xml.dist, test bootstrap, 6 migration files, MigrationsTest (12 tests)
-2. **Read-Only Repos + Agent Profiles** — AgentReadRepository, OfficeReadRepository, AgentProfileRepository, AgentProfileService, AgentController (5 endpoints), tests (63 total)
-3. **Relationships** — RelationshipRepository, RelationshipService, RelationshipController (5 endpoints), tests (97 total)
-4. **Property Sharing** — SharedPropertyRepository, SharedPropertyService, SharedPropertyController (4 endpoints), tests (128 total)
-5. **Referral System** — ReferralCodeRepository, ReferralSignupRepository, ReferralService, ReferralController (4 endpoints), tests (163 total)
-6. **Activity Tracking** — ActivityLogRepository, ActivityService, ActivityController (3 endpoints), tests (187 total)
-7. **Service Provider + Final Tests** — AgentsServiceProvider with all bindings, AgentsServiceProviderTest, final fix for `final` AuthMiddleware (197 total)
+### Phase 8a: bmn-cma Plugin (145 tests, 292 assertions)
+Built the complete CMA (Comparative Market Analysis) plugin:
 
-### Key Issues Encountered and Resolved
-- **`wpdb::esc_like()` missing** — AgentReadRepository's searchByName() needed esc_like(). Added to platform test bootstrap wpdb stub.
-- **Double-slash route keys** — Controllers with `$resource = ''` and leading `/` in paths caused `bmn/v1//my-agent`. Fixed by removing leading slashes from all non-resource controllers.
-- **`final` AuthMiddleware unmockable** — PHPUnit can't stub/mock final classes. Provider test now creates a real AuthMiddleware with a mocked AuthService interface.
+1. **Research** — Analyzed 21 v1 CMA files, mapped business logic, adjustment methodology, confidence scoring
+2. **Source files (16 PHP):**
+   - 4 migrations: bmn_cma_reports, bmn_comparables, bmn_cma_value_history, bmn_market_snapshots
+   - 4 repositories: CmaReportRepository, ComparableRepository, ValueHistoryRepository, MarketSnapshotRepository
+   - 4 services: ComparableSearchService (Haversine + expanding radius), AdjustmentService (6 adjustment types + confidence), CmaReportService (orchestration), MarketConditionsService
+   - 2 controllers: CmaController (10 routes), MarketController (3 routes) = 13 endpoints
+   - 1 provider: CmaServiceProvider
+3. **Test files (12 PHP):** 145 tests, 292 assertions — migrations, repos, services, controllers, provider
+4. **Test fixes:** WP_User stub in bootstrap, anonymous class for DatabaseService, expandSearch mock, `end()` by-reference fix
 
-## Commits This Session
-1. `feat(agents): Phase 7 - Agent-client relationships, sharing, referrals, activity tracking, and 21 REST endpoints`
+### Phase 8b: bmn-analytics Plugin (88 tests, 177 assertions)
+Built the complete analytics tracking plugin:
 
-## Test Status
-- Platform: 142 tests, 280 assertions
-- Extractor: 136 tests, 332 assertions
-- Properties: 140 tests, 280 assertions
-- Users: 169 tests, 296 assertions
-- Schools: 165 tests, 284 assertions
-- Appointments: 160 tests, 307 assertions
-- **Agents: 197 tests, 377 assertions** (NEW)
-- **Total: 1,109 tests, 2,156 assertions** (was 912/1,779)
+1. **Source files (12 PHP):**
+   - 3 migrations: bmn_analytics_events, bmn_analytics_sessions, bmn_analytics_daily
+   - 3 repositories: EventRepository, SessionRepository, DailyAggregateRepository
+   - 2 services: TrackingService (event recording, session management, device detection), ReportingService (trends, top content, aggregation)
+   - 2 controllers: TrackingController (4 routes), ReportingController (5 routes) = 9 endpoints
+   - 1 provider: AnalyticsServiceProvider (with daily cron for aggregation)
+2. **Test files (9 PHP):** 88 tests, 177 assertions
+3. **Test fixes:** Removed `final` from source classes (repos, services, controllers), WP_User stub, DatabaseService anonymous class
 
-## Files Changed (47 total)
+### Test Results — Full Suite (1,342 tests, 2,625 assertions)
+| Suite | Tests | Assertions | Status |
+|-------|-------|------------|--------|
+| bmn-platform | 142 | 280 | OK |
+| bmn-extractor | 136 | 332 | OK |
+| bmn-properties | 140 | 280 | OK |
+| bmn-users | 169 | 296 | OK |
+| bmn-schools | 165 | 284 | OK |
+| bmn-appointments | 160 | 307 | OK |
+| bmn-agents | 197 | 377 | OK |
+| bmn-cma | 145 | 292 | OK |
+| bmn-analytics | 88 | 177 | OK |
+| **Total** | **1,342** | **2,625** | **ALL PASS** |
 
-### Modified (2)
-| File | Change |
-|------|--------|
-| `bmn-platform/tests/bootstrap.php` | Added `esc_like()` to wpdb stub |
-| `bmn-agents/bmn-agents.php` | Wired AgentsServiceProvider into boot hook |
+## Patterns Established / Reinforced
 
-### Created (45)
-| Category | Files |
-|----------|-------|
-| Config | `phpunit.xml.dist`, `tests/bootstrap.php` |
-| Migrations (6) | CreateAgentProfilesTable, CreateRelationshipsTable, CreateSharedPropertiesTable, CreateReferralCodesTable, CreateReferralSignupsTable, CreateActivityLogTable |
-| Repositories (8) | AgentReadRepository, OfficeReadRepository, AgentProfileRepository, RelationshipRepository, SharedPropertyRepository, ReferralCodeRepository, ReferralSignupRepository, ActivityLogRepository |
-| Services (5) | AgentProfileService, RelationshipService, SharedPropertyService, ReferralService, ActivityService |
-| Controllers (5) | AgentController, RelationshipController, SharedPropertyController, ReferralController, ActivityController |
-| Provider (1) | AgentsServiceProvider |
-| Tests (20) | MigrationsTest, 8 repo tests, 5 service tests, 5 controller tests, 1 provider test |
+1. **WP_User stub before platform bootstrap** — Define `WP_User` class and override `wp_set_current_user`/`wp_get_current_user` to return `WP_User` instances before loading platform bootstrap (for `RestController::getCurrentUser()` return type compatibility)
+2. **Anonymous class for final DatabaseService** — Use `new class($wpdb) { ... getWpdb() ... }` in provider tests
+3. **Don't use `final` on mockable classes** — Repos, services, controllers should NOT be `final` (PHPUnit can't mock them)
+4. **`end()` needs a variable** — `end(self::CONSTANT_ARRAY)` fails in PHP 8.5; assign to variable first
 
-## Database Tables Created (6)
-| Table | Purpose |
-|-------|---------|
-| `bmn_agent_profiles` | Extended profile linked to extractor's agent via agent_mls_id |
-| `bmn_agent_client_relationships` | Agent-client assignment tracking with status/source |
-| `bmn_shared_properties` | Agent shares listings with clients, tracks response/views |
-| `bmn_agent_referral_codes` | Unique referral codes per agent |
-| `bmn_referral_signups` | Tracks which clients signed up via referral |
-| `bmn_agent_activity_log` | Client activity feed for agents (favorites, logins, searches) |
+## Not Yet Done
+- Docker verification for Phase 7 (activate bmn-agents, verify 6 tables, test endpoints)
+- Docker verification for Phase 8 (activate bmn-cma + bmn-analytics, verify 7 tables, test endpoints)
 
-## What Needs to Happen Next
+## Next Session: Phase 9 - Flip Analyzer
+- Investment analysis plugin (bmn-flip)
+- ROI calculations, rehab cost estimation, deal analysis
+- Follow same patterns: ServiceProvider, Repository, Service, RestController, unit tests
 
-### Phase 8: CMA and Analytics
-The next phase builds comparative market analysis and analytics tracking.
-
-**Plugin:** `bmn-cma` (namespace `BMN\CMA\`) and `bmn-analytics` (namespace `BMN\Analytics\`)
-
-### Docker Verification (Phase 7)
-- Activate bmn-agents plugin in Docker
-- Verify 6 tables created via phpMyAdmin (localhost:8083)
-- Test endpoints: `curl -s "http://localhost:8082/?rest_route=/bmn/v1/agents" | python3 -m json.tool`
-
-### Known Minor Issues (carried forward)
-- ExtractionController trigger endpoint auth gap (route `auth: false` but callback checks `current_user_can`)
-- Only ~4,000 of 6,001 properties have been re-extracted with new columns/media
-- Polygon filter still uses lat/lng columns (not spatial POINT)
+## Files Changed (approximate)
+- 1 modified: bmn-properties/src/Service/Filter/FilterBuilder.php (bug fix)
+- ~32 new: bmn-cma source + tests
+- ~26 new: bmn-analytics source + tests
+- 2 modified: CLAUDE.md, docs/REBUILD_PROGRESS.md
+- 1 modified: .context/sessions/latest-session.md

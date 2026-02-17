@@ -108,7 +108,7 @@ class FilterBuilder
     private function escapeLike(string $value): string
     {
         if (method_exists($this->wpdb, 'esc_like')) {
-            return $this->escapeLike($value);
+            return $this->wpdb->esc_like($value);
         }
 
         return addcslashes($value, '_%\\');
