@@ -9,8 +9,8 @@
 | 2 | Data Pipeline | Complete | 2026-02-16 | 2026-02-16 | 126/126 | ~85% | Bridge MLS extraction, 7 repos, admin dashboard |
 | 3 | Core Property System | Complete | 2026-02-16 | 2026-02-16 | 140/140 | ~85% | Search, filters, autocomplete, detail |
 | 4 | User System | Complete | 2026-02-16 | 2026-02-16 | 169/169 | ~85% | Auth, favorites, saved searches, profile, password reset |
-| 5 | Schools | Not Started | - | - | - | - | Rankings, data, integration |
-| 6 | Appointments | Not Started | - | - | - | - | Booking, Google Calendar |
+| 5 | Schools | Complete | 2026-02-16 | 2026-02-16 | 165/165 | ~85% | Rankings, data import, filter hook, 7 REST endpoints |
+| 6 | Appointments | Complete | 2026-02-16 | 2026-02-17 | 160/160 | ~85% | Booking, availability, notifications, 10 REST endpoints |
 | 7 | Agent-Client System | Not Started | - | - | - | - | Relationships, sharing |
 | 8 | CMA and Analytics | Not Started | - | - | - | - | Comparables, tracking |
 | 9 | Flip Analyzer | Not Started | - | - | - | - | Investment analysis |
@@ -19,7 +19,105 @@
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 4 - User System - COMPLETE
+## Current Phase: 6 - Appointments - COMPLETE
+
+### Objectives
+- [x] Create 7 database migrations (staff, appointment_types, availability_rules, appointments, attendees, staff_services, notifications_log)
+- [x] Implement 7 repositories (StaffRepository, AppointmentTypeRepository, AvailabilityRuleRepository, AppointmentRepository, AttendeeRepository, StaffServiceRepository, NotificationLogRepository)
+- [x] Implement AppointmentService (create, cancel, reschedule, rate limiting, policy enforcement, Google Calendar sync)
+- [x] Implement AvailabilityService (slot calculation engine: recurring rules + overrides - blocked - booked - Google busy - past)
+- [x] Implement StaffService (active staff, primary staff, staff-by-type)
+- [x] Implement GoogleCalendarService interface + NullCalendarService (stub) + GoogleCalendarClient (real OAuth2)
+- [x] Implement AppointmentNotificationService (confirmation, cancellation, reschedule, 24h/1h reminders via cron)
+- [x] Implement AppointmentController (10 REST endpoints: types, staff, availability, create, policy, list, detail, cancel, reschedule, reschedule-slots)
+- [x] Implement AppointmentsServiceProvider (DI wiring, rest_api_init, cron registration)
+- [x] Write unit tests for all Phase 6 components (160 tests, 307 assertions)
+- [ ] Docker verification: activate plugin, run migrations, seed data, test all 10 endpoints
+
+### Deliverables
+- 26 PHP source files (7 migrations, 7 repositories, 3 services, 3 calendar, 1 notification, 1 controller, 1 provider, 1 bootstrap, 1 phpunit config, 1 test bootstrap)
+- 17 test files (160 tests, 307 assertions)
+- 10 REST endpoints covering booking lifecycle
+- Double-booking prevention via START TRANSACTION + UNIQUE constraint
+- Rate limiting via transients (5 attempts per 15 minutes)
+- Policy enforcement: 2h cancel, 4h reschedule, 3 max reschedules
+- Google Calendar abstracted behind interface (NullCalendarService default)
+- Email notifications with `{{variable}}` interpolation and `appointment` context
+- Hourly cron for 24h and 1h appointment reminders
+- All files have `declare(strict_types=1)`
+- All SQL uses `$wpdb->prepare()`
+
+### Test Breakdown
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| MigrationsTest | 14 | ~28 |
+| StaffRepositoryTest | 9 | ~18 |
+| AppointmentTypeRepositoryTest | 8 | ~16 |
+| AvailabilityRuleRepositoryTest | 7 | ~14 |
+| AppointmentRepositoryTest | 10 | ~20 |
+| AttendeeRepositoryTest | 9 | ~18 |
+| StaffServiceRepositoryTest | 8 | ~16 |
+| NotificationLogRepositoryTest | 6 | ~12 |
+| StaffServiceTest | 5 | ~10 |
+| AvailabilityServiceTest | 14 | ~28 |
+| AppointmentServiceTest | 17 | ~34 |
+| NullCalendarServiceTest | 6 | ~12 |
+| GoogleCalendarClientTest | 4 | ~8 |
+| AppointmentNotificationServiceTest | 12 | ~24 |
+| AppointmentControllerTest | 24 | ~48 |
+| AppointmentsServiceProviderTest | 7 | ~14 |
+| **Total** | **160** | **307** |
+
+### REST Endpoints (10)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/bmn/v1/appointments/types` | No | List active appointment types |
+| GET | `/bmn/v1/appointments/staff` | No | List active staff (filterable by type) |
+| GET | `/bmn/v1/appointments/availability` | No | Available time slots (date range, type, staff) |
+| POST | `/bmn/v1/appointments` | No* | Create appointment (*optional JWT enrichment) |
+| GET | `/bmn/v1/appointments/policy` | No | Cancellation/reschedule policy |
+| GET | `/bmn/v1/appointments` | Yes | List user's appointments |
+| GET | `/bmn/v1/appointments/{id}` | Yes | Appointment detail |
+| DELETE | `/bmn/v1/appointments/{id}` | Yes | Cancel appointment |
+| PATCH | `/bmn/v1/appointments/{id}/reschedule` | Yes | Reschedule appointment |
+| GET | `/bmn/v1/appointments/{id}/reschedule-slots` | Yes | Available reschedule slots |
+
+### Architecture
+```
+AppointmentController (REST - 10 routes)
+  ├── AppointmentService → AppointmentRepository (transactional booking)
+  │                      → AppointmentTypeRepository (type validation)
+  │                      → AttendeeRepository (multi-attendee)
+  │                      → StaffRepository (staff resolution)
+  │                      → AvailabilityService (slot validation)
+  │                      → GoogleCalendarService (calendar sync)
+  │                      → AppointmentNotificationService (emails)
+  ├── AvailabilityService → AvailabilityRuleRepository (rules engine)
+  │                       → AppointmentRepository (booked slots)
+  │                       → StaffRepository (staff resolution)
+  │                       → GoogleCalendarService (busy times)
+  └── StaffService → StaffRepository
+                   → StaffServiceRepository (staff-type links)
+```
+
+### Key Design Decisions
+1. **Transactional booking** — `START TRANSACTION` + UNIQUE constraint on `(staff_id, appointment_date, start_time)` prevents double-booking race conditions.
+2. **Rate limiting via transients** — 5 bookings per 15 minutes per email+IP. Lightweight, no extra table.
+3. **NullCalendarService default** — Google Calendar abstracted behind interface. NullCalendarService bound by default; swap to GoogleCalendarClient when OAuth credentials are configured.
+4. **Slot calculation engine** — Merges recurring rules + specific_date overrides, subtracts blocked dates, booked appointments (with buffers), Google busy times, and past slots. 15-minute increment default.
+5. **Cron-based reminders** — Hourly cron sends 24h and 1h reminders to all attendees. Uses `time()` for `wp_schedule_event()` (not `current_time('timestamp')`).
+6. **Email context = 'appointment'** — Notifications use platform EmailService with `context => 'appointment'` for proper footer.
+7. **Anonymous stubs for final classes** — Platform's `DatabaseService` and `AuthMiddleware` are `final`; provider tests use anonymous class stubs instead of PHPUnit mocks.
+
+---
+
+## Previous Phase: 5 - Schools - COMPLETE
+
+(See session handoff for details — 165 tests, 284 assertions, 7 REST endpoints)
+
+---
+
+## Previous Phase: 4 - User System - COMPLETE
 
 ### Objectives
 - [x] Create 4 database migrations (favorites, saved_searches, revoked_tokens, password_resets)

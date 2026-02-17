@@ -3,11 +3,11 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 5 (Schools) - COMPLETE
-**Status:** Complete (165 tests, 284 assertions) - rankings, data import, school filter hook, 7 REST endpoints
-**Previous Phase:** 4 (User System) - tagged v2.0.0-phase4
-**Current Tag:** v2.0.0-phase5
-**Next Phase:** 6 (Appointments) - Booking, availability, Google Calendar, notifications
+## Current Phase: 6 (Appointments) - COMPLETE
+**Status:** Complete (160 tests, 307 assertions) - booking, availability, Google Calendar, notifications, 10 REST endpoints
+**Previous Phase:** 5 (Schools) - tagged v2.0.0-phase5
+**Current Tag:** v2.0.0-phase6
+**Next Phase:** 7 (Agent-Client System) - Relationships, sharing, referral codes
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -80,6 +80,9 @@ cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-users && composer
 # Run schools tests
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-schools && composer test
 
+# Run appointments tests
+cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-appointments && composer test
+
 # Run PHP linter
 composer lint
 
@@ -111,4 +114,4 @@ At session end: Update CLAUDE.md, write session handoff, commit and push
 ## Token Revocation
 The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT validation. The `bmn-users` plugin hooks into this to check the `bmn_revoked_tokens` table. Any plugin can hook into this filter to reject tokens.
 
-*Last updated: 2026-02-16*
+*Last updated: 2026-02-17*
