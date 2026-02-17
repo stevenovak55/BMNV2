@@ -3,10 +3,9 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 10 (Exclusive Listings) - COMPLETE
-**Status:** 1 plugin (bmn-exclusive), 169 new tests, 312 assertions. 11 REST endpoints. 2 tables.
-**Previous Phase:** 9 (Flip Analyzer) - 132 tests, 405 assertions, 15 REST endpoints
-**Next Phase:** 11 (Theme and Web Frontend) - Templates, Vite build
+## Current Phase: 11b (Property Search + Detail Pages) - IN PROGRESS
+**Status:** Theme v2.1.0 with property search and detail pages. 15 template files, Vite build, HTMX partials.
+**Previous Phase:** 10 (Exclusive Listings) - 169 tests, 312 assertions, 11 REST endpoints
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -18,6 +17,8 @@ Complete rebuild of the BMN Boston real estate platform. New codebase, clean arc
 6. **Prepared SQL** - Always use `$wpdb->prepare()` for dynamic SQL. No exceptions.
 7. **No v1 Modifications** - The old codebase at `~/Development/BMNBoston/` is READ-ONLY reference. Never modify v1 files.
 8. **Production Isolation** - v2 Docker environment uses its own database. Never connect to production.
+9. **NEVER Deploy V2 to Production** - V2 is localhost-only (Docker at port 8082). NEVER rsync, scp, or deploy any V2 code to bmnboston.com or steve-novak.com. Production runs v1. The two systems have completely different database structures, plugin architectures, and REST API namespaces.
+10. **V2 Testing is Localhost Only** - All testing happens at http://localhost:8082. Never run WP-CLI or curl against production for V2 testing. The V2 database has `bmn_*` tables; production has `bme_*` tables. They are incompatible.
 
 ## Project Location
 `~/Development/BMNBoston-v2/`
@@ -128,4 +129,25 @@ At session end: Update CLAUDE.md, write session handoff, commit and push
 ## Token Revocation
 The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT validation. The `bmn-users` plugin hooks into this to check the `bmn_revoked_tokens` table. Any plugin can hook into this filter to reject tokens.
 
-*Last updated: 2026-02-17 (Session 13 - Phase 10 Exclusive Listings)*
+## V2 vs V1 Architecture Differences
+
+**V2 and V1 are completely separate systems. Do NOT mix them.**
+
+| Aspect | V1 (Production) | V2 (Localhost) |
+|--------|-----------------|----------------|
+| Location | `~/Development/BMNBoston/` | `~/Development/BMNBoston-v2/` |
+| Site URL | https://bmnboston.com | http://localhost:8082 |
+| REST namespace | `/mld-mobile/v1/` | `/bmn/v1/` |
+| DB tables | `bme_listings`, `bme_media`, `bme_listing_summary` | `bmn_properties`, `bmn_media` |
+| Theme | `flavor-flavor-flavor` (v1.5.9) | `bmn-theme` (v2.1.0) |
+| Plugins | `mls-listings-display`, `bmn-schools` (v1) | `bmn-properties`, `bmn-schools` (v2) |
+| Query classes | `MLD_Query`, `BNE_MLS_Helpers` | REST API via `rest_do_request()` |
+| Field: address | `unparsed_address` | `address` |
+| Field: price | `list_price` | `price` |
+| Field: beds | `bedrooms_total` | `beds` |
+| Field: baths | `bathrooms_total` / `bathrooms_total_integer` | `baths` |
+| Field: sqft | `building_area_total` | `sqft` |
+| Field: status | `standard_status` | `status` |
+| Search response | `{success, data: {listings, total, total_pages}}` | `{success, data: [...], meta: {total, total_pages}}` |
+
+*Last updated: 2026-02-17 (Session 14 - Phase 11b Property Search + Detail Pages)*

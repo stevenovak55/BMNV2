@@ -1,47 +1,35 @@
-/**
- * BMN Boston Theme — Main Entry Point
- *
- * This file is the primary TypeScript entry point for the theme.
- * Vite processes it and outputs a production bundle into assets/dist/.
- */
+import Alpine from 'alpinejs';
+import htmx from 'htmx.org';
 
-// Import styles so Vite can process and extract them.
-import '../scss/main.scss';
+// Import component modules
+import { autocompleteComponent } from './components/autocomplete';
+import { mortgageCalcComponent } from './components/mortgage-calc';
+import { carouselComponent } from './components/carousel';
+import { mobileDrawerComponent } from './components/mobile-drawer';
+import { propertySearchComponent } from './components/property-search';
+import { photoGalleryComponent } from './components/gallery';
+import { initForms } from './components/forms';
 
-/**
- * Initialise the theme's front-end behaviour.
- */
-function init(): void {
-    console.log('[BMN] Theme initialised.');
+// Register Alpine.js data components
+Alpine.data('autocomplete', autocompleteComponent);
+Alpine.data('mortgageCalc', mortgageCalcComponent);
+Alpine.data('carousel', carouselComponent);
+Alpine.data('mobileDrawer', mobileDrawerComponent);
+Alpine.data('filterState', propertySearchComponent);
+Alpine.data('photoGallery', photoGalleryComponent);
 
-    // Register global event listeners, component bootstrapping, etc.
-    setupNavigation();
+// Make htmx available globally for inline attributes
+declare global {
+  interface Window {
+    Alpine: typeof Alpine;
+    htmx: typeof htmx;
+  }
 }
+window.Alpine = Alpine;
+window.htmx = htmx;
 
-/**
- * Basic responsive navigation toggle.
- */
-function setupNavigation(): void {
-    const nav = document.getElementById('primary-navigation');
-    if (!nav) {
-        return;
-    }
+// Initialize Alpine.js
+Alpine.start();
 
-    const toggle = nav.querySelector<HTMLButtonElement>('.menu-toggle');
-    if (!toggle) {
-        return;
-    }
-
-    toggle.addEventListener('click', () => {
-        const expanded = toggle.getAttribute('aria-expanded') === 'true';
-        toggle.setAttribute('aria-expanded', String(!expanded));
-        nav.classList.toggle('is-open', !expanded);
-    });
-}
-
-// Run when the DOM is ready.
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+// Initialize form handlers
+initForms();
