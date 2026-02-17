@@ -122,6 +122,7 @@ final class ExtractorServiceProvider extends ServiceProvider
             new \BMN\Extractor\Migrations\CreateOpenHousesTable(),
             new \BMN\Extractor\Migrations\CreateExtractionsTable(),
             new \BMN\Extractor\Migrations\CreatePropertyHistoryTable(),
+            new \BMN\Extractor\Migrations\AddPropertyDetailColumns(),
         ];
 
         $runner->run($migrations);

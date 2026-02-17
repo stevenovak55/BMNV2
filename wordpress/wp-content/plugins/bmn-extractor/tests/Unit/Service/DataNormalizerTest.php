@@ -200,6 +200,109 @@ class DataNormalizerTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // normalizeProperty — new detail fields
+    // ------------------------------------------------------------------
+
+    public function testNormalizePropertyMapsBooleanFlags(): void
+    {
+        $api = $this->buildFullApiListing();
+        $api['PoolPrivateYN'] = true;
+        $api['WaterfrontYN'] = false;
+        $api['ViewYN'] = true;
+        $api['CoolingYN'] = true;
+        $api['HeatingYN'] = false;
+        $row = $this->normalizer->normalizeProperty($api);
+
+        $this->assertSame(1, $row['pool_private_yn']);
+        $this->assertSame(0, $row['waterfront_yn']);
+        $this->assertSame(1, $row['view_yn']);
+        $this->assertSame(1, $row['cooling_yn']);
+        $this->assertSame(0, $row['heating_yn']);
+    }
+
+    public function testNormalizePropertyMapsDetailTextFields(): void
+    {
+        $api = $this->buildFullApiListing();
+        $api['Basement'] = ['Full', 'Finished'];
+        $api['Heating'] = ['Forced Air', 'Natural Gas'];
+        $api['Roof'] = 'Asphalt Shingle';
+        $api['ArchitecturalStyle'] = 'Colonial';
+        $row = $this->normalizer->normalizeProperty($api);
+
+        $this->assertSame('["Full","Finished"]', $row['basement']);
+        $this->assertSame('["Forced Air","Natural Gas"]', $row['heating']);
+        $this->assertSame('Asphalt Shingle', $row['roof']);
+        $this->assertSame('Colonial', $row['architectural_style']);
+    }
+
+    public function testNormalizePropertyMapsExtendedFinancialFields(): void
+    {
+        $api = $this->buildFullApiListing();
+        $api['TaxAssessedValue'] = 450000.00;
+        $api['Zoning'] = 'R-1';
+        $api['ParcelNumber'] = '123-456-789';
+        $api['NumberOfUnitsTotal'] = 4;
+        $api['BuyerAgencyCompensation'] = '2.5%';
+        $row = $this->normalizer->normalizeProperty($api);
+
+        $this->assertEquals(450000.00, $row['tax_assessed_value']);
+        $this->assertSame('R-1', $row['zoning']);
+        $this->assertSame('123-456-789', $row['parcel_number']);
+        $this->assertSame(4, $row['number_of_units_total']);
+        $this->assertSame('2.5%', $row['buyer_agency_compensation']);
+    }
+
+    public function testNormalizePropertyMapsExtendedLocationFields(): void
+    {
+        $api = $this->buildFullApiListing();
+        $api['StreetDirPrefix'] = 'N';
+        $api['StreetDirSuffix'] = 'W';
+        $api['BuildingName'] = 'The Residences';
+        $row = $this->normalizer->normalizeProperty($api);
+
+        $this->assertSame('N', $row['street_dir_prefix']);
+        $this->assertSame('W', $row['street_dir_suffix']);
+        $this->assertSame('The Residences', $row['building_name']);
+    }
+
+    public function testNormalizePropertyMapsExtendedListingFields(): void
+    {
+        $api = $this->buildFullApiListing();
+        $api['ExpirationDate'] = '2026-12-31';
+        $api['Contingency'] = 'Inspection';
+        $api['PrivateRemarks'] = 'Seller motivated.';
+        $api['StructureType'] = 'Detached';
+        $row = $this->normalizer->normalizeProperty($api);
+
+        $this->assertSame('2026-12-31', $row['expiration_date']);
+        $this->assertSame('Inspection', $row['contingency']);
+        $this->assertSame('Seller motivated.', $row['private_remarks']);
+        $this->assertSame('Detached', $row['structure_type']);
+    }
+
+    public function testNormalizePropertyPopulatesExtraDataJson(): void
+    {
+        $api = $this->buildFullApiListing();
+        $row = $this->normalizer->normalizeProperty($api);
+
+        $this->assertArrayHasKey('extra_data', $row);
+        $decoded = json_decode($row['extra_data'], true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('abc123', $decoded['ListingKey']);
+        $this->assertSame('12345678', $decoded['ListingId']);
+    }
+
+    public function testNormalizePropertyExtraDataSkippedInChangeDetection(): void
+    {
+        $existing = (object) ['extra_data' => '{}', 'city' => 'Boston'];
+        $normalized = ['extra_data' => '{"foo":"bar"}', 'city' => 'Boston'];
+
+        $changes = $this->normalizer->detectChanges($existing, $normalized);
+        $fields = array_column($changes, 'field');
+        $this->assertNotContains('extra_data', $fields);
+    }
+
+    // ------------------------------------------------------------------
     // normalizeProperty — type handling
     // ------------------------------------------------------------------
 

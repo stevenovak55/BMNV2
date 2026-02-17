@@ -3,10 +3,9 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 6 (Appointments) - COMPLETE
-**Status:** Complete (160 tests, 307 assertions) - booking, availability, Google Calendar, notifications, 10 REST endpoints
-**Previous Phase:** 5 (Schools) - tagged v2.0.0-phase5
-**Current Tag:** v2.0.0-phase6
+## Current Phase: Pre-7 (Extractor Data Gap Fixes) - COMPLETE
+**Status:** All 3 data gaps fixed (media table, schema expansion, spatial indexing). 912 tests, 1,779 assertions.
+**Previous Phase:** 6 (Appointments) - tagged v2.0.0-phase6
 **Next Phase:** 7 (Agent-Client System) - Relationships, sharing, referral codes
 
 ## Critical Rules (NEVER VIOLATE)
@@ -114,4 +113,4 @@ At session end: Update CLAUDE.md, write session handoff, commit and push
 ## Token Revocation
 The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT validation. The `bmn-users` plugin hooks into this to check the `bmn_revoked_tokens` table. Any plugin can hook into this filter to reject tokens.
 
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-17 (Session 9 - Extractor data gap fixes)*

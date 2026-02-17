@@ -44,6 +44,8 @@ class PropertyRepository extends Repository
     /**
      * Upsert a single property using INSERT ... ON DUPLICATE KEY UPDATE.
      * Returns 'created' or 'updated'.
+     *
+     * Handles the `coordinates` POINT column specially using ST_GeomFromText().
      */
     public function upsert(array $data): string
     {
@@ -52,6 +54,11 @@ class PropertyRepository extends Repository
         $now = current_time('mysql');
         $data['created_at'] = $data['created_at'] ?? $now;
         $data['updated_at'] = $now;
+
+        // Extract lat/lng for POINT computation, then remove coordinates from data.
+        $lat = $data['latitude'] ?? null;
+        $lng = $data['longitude'] ?? null;
+        unset($data['coordinates']);
 
         $columns = array_keys($data);
         $sanitizedColumns = array_map(fn($c) => '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $c) . '`', $columns);
@@ -70,6 +77,15 @@ class PropertyRepository extends Repository
                 $updateParts[] = "{$sanitized} = VALUES({$sanitized})";
             }
         }
+
+        // Add coordinates POINT column using spatial function.
+        $sanitizedColumns[] = '`coordinates`';
+        $pointLng = is_numeric($lng) ? (float) $lng : 0.0;
+        $pointLat = is_numeric($lat) ? (float) $lat : 0.0;
+        $placeholders[] = "ST_GeomFromText(CONCAT('POINT(', %f, ' ', %f, ')'))";
+        $values[] = $pointLng;
+        $values[] = $pointLat;
+        $updateParts[] = '`coordinates` = VALUES(`coordinates`)';
 
         $columnList = implode(', ', $sanitizedColumns);
         $placeholderList = implode(', ', $placeholders);

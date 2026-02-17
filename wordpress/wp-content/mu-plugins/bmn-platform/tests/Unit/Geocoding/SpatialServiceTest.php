@@ -257,6 +257,55 @@ class SpatialServiceTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // 18. buildSpatialBoundsCondition: uses MBRContains
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialBoundsConditionContainsMBRContains(): void
+    {
+        $condition = $this->spatial->buildSpatialBoundsCondition(42.40, 42.30, -71.00, -71.10);
+
+        $this->assertStringContainsString('MBRContains', $condition, 'Spatial bounds should use MBRContains.');
+        $this->assertStringContainsString('ST_GeomFromText', $condition, 'Spatial bounds should use ST_GeomFromText.');
+        $this->assertStringContainsString('POLYGON', $condition, 'Spatial bounds should create a POLYGON.');
+        $this->assertStringContainsString('coordinates', $condition, 'Spatial bounds should target coordinates column.');
+    }
+
+    // ------------------------------------------------------------------
+    // 19. buildSpatialBoundsCondition: custom column name
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialBoundsConditionCustomColumn(): void
+    {
+        $condition = $this->spatial->buildSpatialBoundsCondition(42.40, 42.30, -71.00, -71.10, 'geo_point');
+
+        $this->assertStringContainsString('geo_point', $condition);
+    }
+
+    // ------------------------------------------------------------------
+    // 20. buildSpatialRadiusCondition: uses ST_Distance_Sphere
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialRadiusConditionContainsDistanceSphere(): void
+    {
+        $condition = $this->spatial->buildSpatialRadiusCondition(42.3601, -71.0589, 10.0);
+
+        $this->assertStringContainsString('ST_Distance_Sphere', $condition, 'Spatial radius should use ST_Distance_Sphere.');
+        $this->assertStringContainsString('coordinates', $condition, 'Spatial radius should target coordinates column.');
+    }
+
+    // ------------------------------------------------------------------
+    // 21. buildSpatialRadiusCondition: converts miles to meters
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialRadiusConditionConvertsToMeters(): void
+    {
+        $condition = $this->spatial->buildSpatialRadiusCondition(42.3601, -71.0589, 1.0);
+
+        // 1 mile = 1609.344 meters
+        $this->assertStringContainsString('1609.344', $condition, 'Should convert 1 mile to 1609.344 meters.');
+    }
+
+    // ------------------------------------------------------------------
     // 16. geocodeAddress: empty string returns null
     // ------------------------------------------------------------------
 

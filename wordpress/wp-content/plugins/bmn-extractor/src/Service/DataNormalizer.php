@@ -93,6 +93,69 @@ class DataNormalizer
         'association_fee_frequency' => 'AssociationFeeFrequency',
         'mls_area_major'           => 'MLSAreaMajor',
         'mls_area_minor'           => 'MLSAreaMinor',
+
+        // Boolean filter flags.
+        'pool_private_yn'       => 'PoolPrivateYN',
+        'waterfront_yn'         => 'WaterfrontYN',
+        'view_yn'               => 'ViewYN',
+        'spa_yn'                => 'SpaYN',
+        'fireplace_yn'          => 'FireplaceYN',
+        'cooling_yn'            => 'CoolingYN',
+        'heating_yn'            => 'HeatingYN',
+        'garage_yn'             => 'GarageYN',
+        'attached_garage_yn'    => 'AttachedGarageYN',
+        'senior_community_yn'   => 'SeniorCommunityYN',
+        'horse_yn'              => 'HorseYN',
+        'home_warranty_yn'      => 'HomeWarrantyYN',
+        'property_attached_yn'  => 'PropertyAttachedYN',
+
+        // Detail fields.
+        'basement'                 => 'Basement',
+        'heating'                  => 'Heating',
+        'cooling'                  => 'Cooling',
+        'construction_materials'   => 'ConstructionMaterials',
+        'roof'                     => 'Roof',
+        'foundation_details'       => 'FoundationDetails',
+        'sewer'                    => 'Sewer',
+        'water_source'             => 'WaterSource',
+        'flooring'                 => 'Flooring',
+        'appliances'               => 'Appliances',
+        'laundry_features'         => 'LaundryFeatures',
+        'security_features'        => 'SecurityFeatures',
+        'interior_features'        => 'InteriorFeatures',
+        'exterior_features'        => 'ExteriorFeatures',
+        'lot_features'             => 'LotFeatures',
+        'community_features'       => 'CommunityFeatures',
+        'patio_and_porch_features' => 'PatioAndPorchFeatures',
+        'fencing'                  => 'Fencing',
+        'pool_features'            => 'PoolFeatures',
+        'waterfront_features'      => 'WaterfrontFeatures',
+        'view_description'         => 'View',
+        'parking_features'         => 'ParkingFeatures',
+        'architectural_style'      => 'ArchitecturalStyle',
+        'property_condition'       => 'PropertyCondition',
+        'accessibility_features'   => 'AccessibilityFeatures',
+
+        // Extended financial fields.
+        'tax_assessed_value'       => 'TaxAssessedValue',
+        'zoning'                   => 'Zoning',
+        'parcel_number'            => 'ParcelNumber',
+        'gross_income'             => 'GrossIncome',
+        'net_operating_income'     => 'NetOperatingIncome',
+        'total_actual_rent'        => 'TotalActualRent',
+        'number_of_units_total'    => 'NumberOfUnitsTotal',
+        'buyer_agency_compensation' => 'BuyerAgencyCompensation',
+
+        // Extended location fields.
+        'street_dir_prefix'        => 'StreetDirPrefix',
+        'street_dir_suffix'        => 'StreetDirSuffix',
+        'building_name'            => 'BuildingName',
+
+        // Extended listing fields.
+        'expiration_date'          => 'ExpirationDate',
+        'contingency'              => 'Contingency',
+        'private_remarks'          => 'PrivateRemarks',
+        'structure_type'           => 'StructureType',
     ];
 
     /**
@@ -169,6 +232,7 @@ class DataNormalizer
         'id',
         'created_at',
         'updated_at',
+        'extra_data',
     ];
 
     /**
@@ -205,6 +269,9 @@ class DataNormalizer
             $row['list_price'] ?? null,
             $row['living_area'] ?? null,
         );
+
+        // Store complete API response as JSON for fields not mapped to columns.
+        $row['extra_data'] = json_encode($apiListing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $row;
     }

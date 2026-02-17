@@ -5,9 +5,9 @@
 | Phase | Name | Status | Started | Completed | Tests | Coverage | Notes |
 |-------|------|--------|---------|-----------|-------|----------|-------|
 | 0 | Project Setup | Complete | 2026-02-16 | 2026-02-16 | 17/17 | N/A | All infrastructure operational |
-| 1 | Platform Foundation | Complete | 2026-02-16 | 2026-02-16 | 138/138 | ~80% | Auth, DB, Cache, Email, Geo, Logging |
-| 2 | Data Pipeline | Complete | 2026-02-16 | 2026-02-16 | 126/126 | ~85% | Bridge MLS extraction, 7 repos, admin dashboard |
-| 3 | Core Property System | Complete | 2026-02-16 | 2026-02-16 | 140/140 | ~85% | Search, filters, autocomplete, detail |
+| 1 | Platform Foundation | Complete | 2026-02-16 | 2026-02-17 | 142/142 | ~80% | Auth, DB, Cache, Email, Geo, Logging, Spatial queries |
+| 2 | Data Pipeline | Complete | 2026-02-16 | 2026-02-17 | 136/136 | ~85% | Bridge MLS extraction, 7 repos, admin dashboard, media fix, schema expansion, spatial indexing |
+| 3 | Core Property System | Complete | 2026-02-16 | 2026-02-17 | 140/140 | ~85% | Search, filters, autocomplete, detail, spatial bounds |
 | 4 | User System | Complete | 2026-02-16 | 2026-02-16 | 169/169 | ~85% | Auth, favorites, saved searches, profile, password reset |
 | 5 | Schools | Complete | 2026-02-16 | 2026-02-16 | 165/165 | ~85% | Rankings, data import, filter hook, 7 REST endpoints |
 | 6 | Appointments | Complete | 2026-02-16 | 2026-02-17 | 160/160 | ~85% | Booking, availability, notifications, 10 REST endpoints |

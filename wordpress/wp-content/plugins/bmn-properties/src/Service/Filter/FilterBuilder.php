@@ -210,13 +210,12 @@ class FilterBuilder
             $parts = array_map('floatval', explode(',', $filters['bounds']));
             if (count($parts) === 4) {
                 [$south, $west, $north, $east] = $parts;
-                $conditions[] = $this->geocoding->buildBoundsCondition(
+                $conditions[] = $this->geocoding->buildSpatialBoundsCondition(
                     $north,
                     $south,
                     $east,
                     $west,
-                    'latitude',
-                    'longitude'
+                    'coordinates'
                 );
             }
         }

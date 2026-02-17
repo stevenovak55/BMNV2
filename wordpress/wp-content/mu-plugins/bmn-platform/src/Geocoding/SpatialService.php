@@ -344,6 +344,63 @@ class SpatialService implements GeocodingService
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function buildSpatialBoundsCondition(
+        float $north,
+        float $south,
+        float $east,
+        float $west,
+        string $pointColumn = 'coordinates'
+    ): string {
+        global $wpdb;
+
+        $col = $this->sanitizeColumnName($pointColumn);
+
+        // MBRContains(envelope, geometry) — envelope is a polygon bounding box.
+        // POINT uses X=longitude, Y=latitude in MySQL.
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        return $wpdb->prepare(
+            "MBRContains(ST_GeomFromText(CONCAT('POLYGON((',
+                %f, ' ', %f, ',',
+                %f, ' ', %f, ',',
+                %f, ' ', %f, ',',
+                %f, ' ', %f, ',',
+                %f, ' ', %f,
+            '))')), {$col})",
+            $west, $south,   // SW corner
+            $east, $south,   // SE corner
+            $east, $north,   // NE corner
+            $west, $north,   // NW corner
+            $west, $south    // Close polygon (SW again)
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function buildSpatialRadiusCondition(
+        float $lat,
+        float $lng,
+        float $radiusMiles,
+        string $pointColumn = 'coordinates'
+    ): string {
+        global $wpdb;
+
+        $col = $this->sanitizeColumnName($pointColumn);
+        $radiusMeters = $radiusMiles * 1609.344;
+
+        // ST_Distance_Sphere returns meters. POINT uses X=lng, Y=lat.
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        return $wpdb->prepare(
+            "ST_Distance_Sphere({$col}, ST_GeomFromText(CONCAT('POINT(', %f, ' ', %f, ')'))) <= %f",
+            $lng,
+            $lat,
+            $radiusMeters
+        );
+    }
+
+    /**
      * Sanitize a SQL column name to prevent injection.
      *
      * Only alphanumeric characters, underscores, and dots are permitted.

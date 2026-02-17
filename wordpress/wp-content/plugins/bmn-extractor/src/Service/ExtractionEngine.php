@@ -196,6 +196,7 @@ class ExtractionEngine
         $listingKeys = [];
         $agentIds = [];
         $officeIds = [];
+        $batchMedia = [];
         $consecutiveErrors = 0;
 
         foreach ($listings as $apiListing) {
@@ -232,6 +233,11 @@ class ExtractionEngine
 
                 $listingKeys[] = $listingKey;
 
+                // Collect inline media from the API response.
+                if (!empty($apiListing['Media']) && is_array($apiListing['Media'])) {
+                    $batchMedia[$listingKey] = $apiListing['Media'];
+                }
+
                 // Collect agent/office IDs for batch lookup.
                 if (! empty($normalized['list_agent_mls_id'])) {
                     $agentIds[] = $normalized['list_agent_mls_id'];
@@ -260,15 +266,17 @@ class ExtractionEngine
         }
 
         // Fetch and store related data.
-        $this->processRelatedData($listingKeys, $agentIds, $officeIds);
+        $this->processRelatedData($listingKeys, $agentIds, $officeIds, $batchMedia);
 
         return $result;
     }
 
     /**
      * Fetch and store agents, offices, and media for the processed batch.
+     *
+     * @param array $batchMedia Inline media arrays keyed by listing_key, collected from API responses.
      */
-    private function processRelatedData(array $listingKeys, array $agentIds, array $officeIds): void
+    private function processRelatedData(array $listingKeys, array $agentIds, array $officeIds, array $batchMedia = []): void
     {
         // Agents.
         if (! empty($agentIds)) {
@@ -300,33 +308,22 @@ class ExtractionEngine
             }
         }
 
-        // Media.
-        if (! empty($listingKeys)) {
+        // Media — use inline Media arrays from the Property API response.
+        if (! empty($batchMedia)) {
             try {
-                $apiMedia = $this->apiClient->fetchMediaForListings($listingKeys);
-
-                // Group media by listing key.
-                $grouped = [];
-                foreach ($apiMedia as $item) {
-                    $key = $item['ResourceRecordKey'] ?? null;
-                    if ($key !== null) {
-                        $grouped[$key][] = $item;
-                    }
-                }
-
-                foreach ($grouped as $listingKey => $mediaItems) {
+                foreach ($batchMedia as $listingKey => $mediaItems) {
                     $normalizedMedia = [];
                     foreach ($mediaItems as $item) {
-                        $normalizedMedia[] = $this->normalizer->normalizeMedia($item, $listingKey);
+                        $normalizedMedia[] = $this->normalizer->normalizeMedia($item, (string) $listingKey);
                     }
-                    $this->media->replaceForListing($listingKey, $normalizedMedia);
+                    $this->media->replaceForListing((string) $listingKey, $normalizedMedia);
 
                     // Update main_photo_url on the property.
                     if (! empty($normalizedMedia)) {
                         usort($normalizedMedia, fn($a, $b) => ($a['order_index'] ?? 0) <=> ($b['order_index'] ?? 0));
                         $mainPhotoUrl = $normalizedMedia[0]['media_url'] ?? null;
                         if ($mainPhotoUrl) {
-                            $property = $this->properties->findByListingKey($listingKey);
+                            $property = $this->properties->findByListingKey((string) $listingKey);
                             if ($property) {
                                 $this->properties->update($property->id, [
                                     'main_photo_url' => $mainPhotoUrl,
@@ -337,7 +334,7 @@ class ExtractionEngine
                     }
                 }
             } catch (\Throwable $e) {
-                error_log("BMN Extractor: Error fetching media: " . $e->getMessage());
+                error_log("BMN Extractor: Error processing media: " . $e->getMessage());
             }
         }
 

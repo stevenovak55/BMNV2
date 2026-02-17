@@ -364,17 +364,17 @@ final class FilterBuilderTest extends TestCase
     // Geo
     // ------------------------------------------------------------------
 
-    public function testBoundsFilter(): void
+    public function testBoundsFilterUsesSpatialQuery(): void
     {
         $this->geocoding
             ->expects($this->once())
-            ->method('buildBoundsCondition')
-            ->with(42.4, 42.3, -71.0, -71.1, 'latitude', 'longitude')
-            ->willReturn('latitude BETWEEN 42.3 AND 42.4 AND longitude BETWEEN -71.1 AND -71.0');
+            ->method('buildSpatialBoundsCondition')
+            ->with(42.4, 42.3, -71.0, -71.1, 'coordinates')
+            ->willReturn('MBRContains(ST_GeomFromText(...), coordinates)');
 
         $result = $this->builder->build(['bounds' => '42.3,-71.1,42.4,-71.0']);
 
-        $this->assertStringContainsString('latitude BETWEEN', $result->where);
+        $this->assertStringContainsString('MBRContains', $result->where);
     }
 
     public function testPolygonFilter(): void

@@ -134,6 +134,38 @@ class PropertyRepositoryTest extends TestCase
         $this->assertStringNotContainsString('`created_at` = VALUES', $updatePart);
     }
 
+    public function testUpsertIncludesCoordinatesPointFromLatLng(): void
+    {
+        $this->wpdb->query_result = 1;
+
+        $data = [
+            'listing_key' => 'LK1',
+            'listing_id' => 'MLS1',
+            'latitude' => 42.3601,
+            'longitude' => -71.0589,
+        ];
+
+        $this->repo->upsert($data);
+
+        $sql = $this->wpdb->queries[0]['sql'];
+        $this->assertStringContainsString('`coordinates`', $sql);
+        $this->assertStringContainsString('ST_GeomFromText', $sql);
+        $this->assertStringContainsString('POINT', $sql);
+    }
+
+    public function testUpsertUsesZeroPointWhenNoCoordinates(): void
+    {
+        $this->wpdb->query_result = 1;
+
+        $data = ['listing_key' => 'LK1', 'listing_id' => 'MLS1'];
+        $this->repo->upsert($data);
+
+        $sql = $this->wpdb->queries[0]['sql'];
+        $this->assertStringContainsString('ST_GeomFromText', $sql);
+        // With no lat/lng, should use 0.0 for both.
+        $this->assertStringContainsString('`coordinates`', $sql);
+    }
+
     // ------------------------------------------------------------------
     // batchUpsert
     // ------------------------------------------------------------------

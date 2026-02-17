@@ -101,4 +101,38 @@ interface GeocodingService
      * @return bool True if coordinates are valid.
      */
     public function validateCoordinates(float $lat, float $lng): bool;
+
+    /**
+     * Build a SQL WHERE condition using MBRContains with a POINT column.
+     *
+     * @param float  $north       Northern boundary latitude.
+     * @param float  $south       Southern boundary latitude.
+     * @param float  $east        Eastern boundary longitude.
+     * @param float  $west        Western boundary longitude.
+     * @param string $pointColumn Column name of the POINT type.
+     * @return string Prepared SQL condition.
+     */
+    public function buildSpatialBoundsCondition(
+        float $north,
+        float $south,
+        float $east,
+        float $west,
+        string $pointColumn = 'coordinates'
+    ): string;
+
+    /**
+     * Build a SQL WHERE condition using ST_Distance_Sphere with a POINT column.
+     *
+     * @param float  $lat         Center latitude.
+     * @param float  $lng         Center longitude.
+     * @param float  $radiusMiles Radius in miles.
+     * @param string $pointColumn Column name of the POINT type.
+     * @return string Prepared SQL condition.
+     */
+    public function buildSpatialRadiusCondition(
+        float $lat,
+        float $lng,
+        float $radiusMiles,
+        string $pointColumn = 'coordinates'
+    ): string;
 }

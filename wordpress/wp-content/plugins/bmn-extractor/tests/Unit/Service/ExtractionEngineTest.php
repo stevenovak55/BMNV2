@@ -212,7 +212,7 @@ class ExtractionEngineTest extends TestCase
         $this->properties->method('findByListingKey')->willReturn(null);
         $this->properties->method('upsert')->willReturn('created');
         $this->apiClient->method('fetchRelatedResource')->willReturn([]);
-        $this->apiClient->method('fetchMediaForListings')->willReturn([]);
+        // Media is now collected inline from API responses — no fetchMediaForListings call.
 
         $result = $this->engine->run();
 
@@ -254,7 +254,7 @@ class ExtractionEngineTest extends TestCase
         $this->properties->method('findByListingKey')->willReturn(null);
         $this->properties->method('upsert')->willReturn('created');
         $this->apiClient->method('fetchRelatedResource')->willReturn([]);
-        $this->apiClient->method('fetchMediaForListings')->willReturn([]);
+        // Media is now collected inline from API responses — no fetchMediaForListings call.
 
         $this->extractions->expects($this->once())
             ->method('pauseRun')
@@ -275,7 +275,7 @@ class ExtractionEngineTest extends TestCase
         $this->apiClient->method('buildIncrementalFilter')->willReturn('test');
         $this->apiClient->method('fetchListings')->willReturn(0);
         $this->apiClient->method('fetchRelatedResource')->willReturn([]);
-        $this->apiClient->method('fetchMediaForListings')->willReturn([]);
+        // Media is now collected inline from API responses — no fetchMediaForListings call.
 
         $pausedRun = (object) [
             'id' => 42,
@@ -344,7 +344,7 @@ class ExtractionEngineTest extends TestCase
             ['field' => 'list_price', 'old_value' => '500000', 'new_value' => 600000],
         ]);
         $this->apiClient->method('fetchRelatedResource')->willReturn([]);
-        $this->apiClient->method('fetchMediaForListings')->willReturn([]);
+        // Media is now collected inline from API responses — no fetchMediaForListings call.
 
         $this->history->expects($this->once())
             ->method('logChanges')
@@ -377,7 +377,7 @@ class ExtractionEngineTest extends TestCase
         ]);
         $this->properties->method('findByListingKey')->willReturn(null);
         $this->properties->method('upsert')->willReturn('created');
-        $this->apiClient->method('fetchMediaForListings')->willReturn([]);
+        // Media is now collected inline from API responses — no fetchMediaForListings call.
 
         // Agents/offices return empty.
         $this->apiClient->method('fetchRelatedResource')
@@ -397,6 +397,63 @@ class ExtractionEngineTest extends TestCase
         $this->openHouses->expects($this->once())
             ->method('replaceForListing')
             ->with('LK1', $this->isType('array'));
+
+        $this->engine->run();
+    }
+
+    // ------------------------------------------------------------------
+    // processRelatedData — inline media
+    // ------------------------------------------------------------------
+
+    public function testProcessRelatedDataSavesInlineMedia(): void
+    {
+        $this->apiClient->method('hasCredentials')->willReturn(true);
+        $this->extractions->method('startRun')->willReturn(1);
+        $this->extractions->method('updateMetrics')->willReturn(true);
+        $this->extractions->method('completeRun')->willReturn(true);
+        $this->apiClient->method('buildIncrementalFilter')->willReturn('test');
+        $this->properties->method('getLastModificationTimestamp')->willReturn(null);
+
+        $listing = [
+            'ListingKey' => 'LK1',
+            'ListingId' => 'MLS1',
+            'StandardStatus' => 'Active',
+            'Media' => [
+                ['MediaURL' => 'https://photos.example.com/1.jpg', 'MediaKey' => 'MK1', 'Order' => 0],
+                ['MediaURL' => 'https://photos.example.com/2.jpg', 'MediaKey' => 'MK2', 'Order' => 1],
+            ],
+        ];
+
+        $this->apiClient->method('fetchListings')
+            ->willReturnCallback(function ($filter, $callback) use ($listing) {
+                $callback([$listing], 1);
+                return 1;
+            });
+
+        $this->normalizer->method('normalizeProperty')->willReturn([
+            'listing_key' => 'LK1', 'listing_id' => 'MLS1', 'standard_status' => 'Active',
+        ]);
+        $this->properties->method('findByListingKey')->willReturn(null);
+        $this->properties->method('upsert')->willReturn('created');
+        $this->apiClient->method('fetchRelatedResource')->willReturn([]);
+
+        $this->normalizer->method('normalizeMedia')
+            ->willReturnCallback(function (array $item, string $key) {
+                return [
+                    'media_key' => $item['MediaKey'],
+                    'media_url' => $item['MediaURL'],
+                    'order_index' => $item['Order'],
+                    'listing_key' => $key,
+                ];
+            });
+
+        $this->media->expects($this->once())
+            ->method('replaceForListing')
+            ->with('LK1', $this->callback(function ($media) {
+                return count($media) === 2
+                    && $media[0]['media_key'] === 'MK1'
+                    && $media[1]['media_key'] === 'MK2';
+            }));
 
         $this->engine->run();
     }

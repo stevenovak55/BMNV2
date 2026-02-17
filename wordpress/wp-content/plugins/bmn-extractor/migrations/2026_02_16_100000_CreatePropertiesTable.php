@@ -85,6 +85,76 @@ class CreatePropertiesTable extends Migration
             mls_area_minor VARCHAR(100) NULL,
             days_on_market INT NULL,
             price_per_sqft DECIMAL(14,2) NULL,
+
+            -- Boolean filter flags
+            pool_private_yn TINYINT(1) NULL,
+            waterfront_yn TINYINT(1) NULL,
+            view_yn TINYINT(1) NULL,
+            spa_yn TINYINT(1) NULL,
+            fireplace_yn TINYINT(1) NULL,
+            cooling_yn TINYINT(1) NULL,
+            heating_yn TINYINT(1) NULL,
+            garage_yn TINYINT(1) NULL,
+            attached_garage_yn TINYINT(1) NULL,
+            senior_community_yn TINYINT(1) NULL,
+            horse_yn TINYINT(1) NULL,
+            home_warranty_yn TINYINT(1) NULL,
+            property_attached_yn TINYINT(1) NULL,
+
+            -- Detail fields
+            basement TEXT NULL,
+            heating TEXT NULL,
+            cooling TEXT NULL,
+            construction_materials TEXT NULL,
+            roof TEXT NULL,
+            foundation_details TEXT NULL,
+            sewer VARCHAR(100) NULL,
+            water_source VARCHAR(100) NULL,
+            flooring TEXT NULL,
+            appliances TEXT NULL,
+            laundry_features TEXT NULL,
+            security_features TEXT NULL,
+            interior_features TEXT NULL,
+            exterior_features TEXT NULL,
+            lot_features TEXT NULL,
+            community_features TEXT NULL,
+            patio_and_porch_features TEXT NULL,
+            fencing TEXT NULL,
+            pool_features TEXT NULL,
+            waterfront_features TEXT NULL,
+            view_description TEXT NULL,
+            parking_features TEXT NULL,
+            architectural_style VARCHAR(100) NULL,
+            property_condition VARCHAR(100) NULL,
+            accessibility_features TEXT NULL,
+
+            -- Financial fields
+            tax_assessed_value DECIMAL(14,2) NULL,
+            zoning VARCHAR(50) NULL,
+            parcel_number VARCHAR(50) NULL,
+            gross_income DECIMAL(14,2) NULL,
+            net_operating_income DECIMAL(14,2) NULL,
+            total_actual_rent DECIMAL(14,2) NULL,
+            number_of_units_total INT NULL,
+            buyer_agency_compensation VARCHAR(50) NULL,
+
+            -- Location fields
+            street_dir_prefix VARCHAR(20) NULL,
+            street_dir_suffix VARCHAR(20) NULL,
+            building_name VARCHAR(100) NULL,
+
+            -- Listing fields
+            expiration_date DATE NULL,
+            contingency VARCHAR(100) NULL,
+            private_remarks LONGTEXT NULL,
+            structure_type VARCHAR(100) NULL,
+
+            -- JSON catch-all for complete API data
+            extra_data JSON NULL,
+
+            -- Spatial column
+            coordinates POINT NOT NULL DEFAULT (ST_GeomFromText('POINT(0 0)')),
+
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -98,6 +168,12 @@ class CreatePropertiesTable extends Migration
             KEY idx_city_status (city, standard_status),
             KEY idx_modification (modification_timestamp),
             KEY idx_lat_lng (latitude, longitude),
+            KEY idx_pool (pool_private_yn),
+            KEY idx_waterfront (waterfront_yn),
+            KEY idx_view (view_yn),
+            KEY idx_cooling (cooling_yn),
+            KEY idx_units (number_of_units_total),
+            SPATIAL KEY spatial_coordinates (coordinates),
             FULLTEXT KEY ft_remarks (public_remarks)
         ) {$charset_collate};";
 
