@@ -14,12 +14,103 @@
 | 7 | Agent-Client System | Complete | 2026-02-17 | 2026-02-17 | 197/197 | ~85% | Profiles, relationships, sharing, referrals, activity, 21 REST endpoints |
 | 8 | CMA and Analytics | Complete | 2026-02-17 | 2026-02-17 | 233/233 | ~85% | CMA reports, comparables, adjustments, analytics tracking, 22 REST endpoints |
 | 9 | Flip Analyzer | Complete | 2026-02-17 | 2026-02-17 | 132/132 | ~85% | ARV, financials, scoring, 15 REST endpoints, 4 tables |
-| 10 | Exclusive Listings | Not Started | - | - | - | - | Agent-created listings |
+| 10 | Exclusive Listings | Complete | 2026-02-17 | 2026-02-17 | 169/169 | ~85% | Agent-created listings, photo management, status lifecycle, 11 REST endpoints, 2 tables |
 | 11 | Theme and Web Frontend | Not Started | - | - | - | - | Templates, Vite build |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 9 - Flip Analyzer - COMPLETE
+## Current Phase: 10 - Exclusive Listings - COMPLETE
+
+### Objectives
+- [x] Research v1 exclusive listings code (agent-created listings, photo management, status lifecycle)
+- [x] Docker verification for Phase 9 (activated bmn-flip, verified 4 tables)
+- [x] Build bmn-exclusive plugin with 2 migrations, 2 repositories, 3 services, 2 controllers, 1 provider
+- [x] Implement listing CRUD with validation (property types, sub-types, status, postal codes, state abbreviations)
+- [x] Implement photo management (upload, delete, reorder, primary photo, MAX_PHOTOS=100)
+- [x] Implement status lifecycle with transition validation (draft→active→pending→closed, etc.)
+- [x] Implement data sanitization (type coercion, bathroom normalization, postal code formatting)
+- [x] Write 169 tests (312 assertions) covering all components
+- [x] All 1,643 tests pass across 11 suites (zero regressions)
+- [x] Docker verification: plugin activated, 2 tables created (64+8 columns), endpoints verified
+
+### Deliverables
+
+**bmn-exclusive plugin:**
+- 10 PHP source files (2 migrations, 2 repositories, 3 services, 2 controllers, 1 provider)
+- 9 test files + 1 test bootstrap (169 tests, 312 assertions)
+- 2 database tables: bmn_exclusive_listings (64 columns), bmn_exclusive_photos (8 columns)
+- 11 REST endpoints (7 listing + 4 photo)
+- Property types: Residential, Residential Income, Commercial Sale, Commercial Lease, Land, Business Opportunity
+- Property sub-types per type (e.g., Residential: Single Family Residence, Condominium, Townhouse, Multi Family, Mobile Home)
+- Status lifecycle: draft, active, pending, closed, withdrawn, expired, canceled
+- Status transition validation (e.g., draft→active allowed, closed→anything blocked)
+- Exclusive tags: Coming Soon, Pocket Listing, Off-Market, Pre-Market, Private Exclusive
+- Validation: postal code (5-digit + ZIP+4), state (2-letter uppercase), price (positive), all required fields
+- Data sanitization: string trimming, state uppercasing, postal code normalization (9-digit→ZIP+4), type coercion (float/int/bool), bathroom normalization (total↔full+half)
+- Photo management: sort order, primary photo tracking, reorder with batch update, cascade delete
+- Ownership checks on all operations (agent_user_id verification)
+
+**Test bootstrap enhancement:**
+- Extended WP_REST_Request stub with set_body()/get_body()/get_json_params() for JSON body parsing in controller tests (defined before platform bootstrap via class_exists guard)
+
+### Test Breakdown — bmn-exclusive (169 tests, 312 assertions)
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| MigrationsTest | 6 | ~12 |
+| ExclusiveListingRepositoryTest | 17 | ~34 |
+| ExclusivePhotoRepositoryTest | 14 | ~28 |
+| ValidationServiceTest | 47 | ~94 |
+| ListingServiceTest | 27 | ~54 |
+| PhotoServiceTest | 19 | ~38 |
+| ListingControllerTest | 16 | ~32 |
+| PhotoControllerTest | 11 | ~22 |
+| ExclusiveServiceProviderTest | 12 | ~24 |
+| **Total** | **169** | **312** |
+
+### Exclusive Listing REST Endpoints (7)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/bmn/v1/exclusive` | Yes | List agent's listings (paginated, filterable by status) |
+| POST | `/bmn/v1/exclusive` | Yes | Create new exclusive listing |
+| GET | `/bmn/v1/exclusive/{id}` | Yes | Get single listing |
+| PUT | `/bmn/v1/exclusive/{id}` | Yes | Update listing |
+| DELETE | `/bmn/v1/exclusive/{id}` | Yes | Delete listing |
+| PUT | `/bmn/v1/exclusive/{id}/status` | Yes | Update listing status |
+| GET | `/bmn/v1/exclusive/options` | Yes | Get validation options (property types, statuses, etc.) |
+
+### Photo REST Endpoints (4)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/bmn/v1/exclusive/{id}/photos` | Yes | Get photos for listing |
+| POST | `/bmn/v1/exclusive/{id}/photos` | Yes | Add photo to listing |
+| DELETE | `/bmn/v1/exclusive/{id}/photos/{photo_id}` | Yes | Delete photo |
+| PUT | `/bmn/v1/exclusive/{id}/photos/order` | Yes | Reorder photos |
+
+### Architecture
+```
+bmn-exclusive:
+  ListingController (REST - 7 routes, resource='exclusive')
+    └── ListingService → ExclusiveListingRepository (bmn_exclusive_listings)
+                        → ExclusivePhotoRepository (bmn_exclusive_photos)
+                        → ValidationService (pure logic, no deps)
+    └── ValidationService → getOptions() (standalone)
+
+  PhotoController (REST - 4 routes, resource='exclusive')
+    └── PhotoService → ExclusiveListingRepository (ownership checks)
+                      → ExclusivePhotoRepository (CRUD, reorder)
+```
+
+### Key Design Decisions
+1. **Strict validation with sanitization** — ValidationService validates required fields, property types, sub-types, status, postal codes, and state abbreviations. Separate sanitizeListingData() method handles type coercion, trimming, and normalization before persistence.
+2. **Bathroom normalization** — If only bathrooms_total given, derives full + half. If only full + half given, derives total. Avoids overwriting explicit values.
+3. **Status transition map** — Allowed transitions defined as a const map. Closed is terminal (no transitions out). Withdrawn/expired can return to draft or active.
+4. **Photo sort order** — Photos have explicit sort_order column. Reorder accepts ordered array of photo IDs and updates sort_order in batch. First photo is always primary.
+5. **Ownership on every operation** — Every listing/photo operation checks agent_user_id matches current user. No admin override (agents only see their own listings).
+6. **WP_REST_Request stub layering** — Exclusive bootstrap defines a richer WP_REST_Request stub (with body methods) before platform bootstrap, using class_exists guard to prevent platform's simpler version from loading.
+
+---
+
+## Previous Phase: 9 - Flip Analyzer - COMPLETE
 
 ### Objectives
 - [x] Research v1 flip analyzer business logic (ARV, financials, scoring, strategies)

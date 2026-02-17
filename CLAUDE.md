@@ -3,10 +3,10 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 9 (Flip Analyzer) - COMPLETE
-**Status:** 1 plugin (bmn-flip), 132 new tests, 405 assertions. 15 REST endpoints. 4 tables.
-**Previous Phase:** 8 (CMA and Analytics) - 233 tests, 469 assertions, 22 REST endpoints
-**Next Phase:** 10 (Exclusive Listings) - Agent-created listings
+## Current Phase: 10 (Exclusive Listings) - COMPLETE
+**Status:** 1 plugin (bmn-exclusive), 169 new tests, 312 assertions. 11 REST endpoints. 2 tables.
+**Previous Phase:** 9 (Flip Analyzer) - 132 tests, 405 assertions, 15 REST endpoints
+**Next Phase:** 11 (Theme and Web Frontend) - Templates, Vite build
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -94,6 +94,9 @@ cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-analytics && comp
 # Run flip tests
 cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-flip && composer test
 
+# Run exclusive tests
+cd ~/Development/BMNBoston-v2/wordpress/wp-content/plugins/bmn-exclusive && composer test
+
 # Run PHP linter
 composer lint
 
@@ -125,4 +128,4 @@ At session end: Update CLAUDE.md, write session handoff, commit and push
 ## Token Revocation
 The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT validation. The `bmn-users` plugin hooks into this to check the `bmn_revoked_tokens` table. Any plugin can hook into this filter to reject tokens.
 
-*Last updated: 2026-02-17 (Session 12 - Phase 9 Flip Analyzer)*
+*Last updated: 2026-02-17 (Session 13 - Phase 10 Exclusive Listings)*
