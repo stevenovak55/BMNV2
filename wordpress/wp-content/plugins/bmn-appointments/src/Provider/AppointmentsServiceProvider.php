@@ -22,6 +22,7 @@ use BMN\Platform\Auth\AuthMiddleware;
 use BMN\Platform\Core\Container;
 use BMN\Platform\Core\ServiceProvider;
 use BMN\Platform\Database\DatabaseService;
+use BMN\Platform\Database\MigrationRunner;
 use BMN\Platform\Email\EmailService;
 
 /**
@@ -102,6 +103,9 @@ final class AppointmentsServiceProvider extends ServiceProvider
 
     public function boot(Container $container): void
     {
+        // Run migrations.
+        $this->runMigrations($container);
+
         // Register REST routes.
         add_action('rest_api_init', static function () use ($container): void {
             $container->make(AppointmentController::class)->registerRoutes();
@@ -115,5 +119,26 @@ final class AppointmentsServiceProvider extends ServiceProvider
         add_action('bmn_appointments_send_reminders', static function () use ($container): void {
             $container->make(AppointmentNotificationService::class)->processReminders();
         });
+    }
+
+    /**
+     * Run pending database migrations.
+     */
+    private function runMigrations(Container $container): void
+    {
+        $db = $container->make(DatabaseService::class);
+        $runner = new MigrationRunner($db->getWpdb());
+
+        $migrations = [
+            new \BMN\Appointments\Migration\CreateStaffTable(),
+            new \BMN\Appointments\Migration\CreateAppointmentTypesTable(),
+            new \BMN\Appointments\Migration\CreateAvailabilityRulesTable(),
+            new \BMN\Appointments\Migration\CreateAppointmentsTable(),
+            new \BMN\Appointments\Migration\CreateAttendeeTable(),
+            new \BMN\Appointments\Migration\CreateStaffServicesTable(),
+            new \BMN\Appointments\Migration\CreateNotificationsLogTable(),
+        ];
+
+        $runner->run($migrations);
     }
 }

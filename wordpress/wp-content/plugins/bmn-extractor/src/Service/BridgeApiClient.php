@@ -115,13 +115,15 @@ class BridgeApiClient
      */
     public function buildIncrementalFilter(?string $lastModified = null): string
     {
+        $statusFilter = "(StandardStatus eq 'Active' or StandardStatus eq 'Pending' or StandardStatus eq 'Active Under Contract')";
+
         if ($lastModified === null) {
-            return "MlgCanView eq true";
+            return $statusFilter;
         }
 
         // Format: 2026-02-16T00:00:00Z
         $formatted = gmdate('Y-m-d\TH:i:s\Z', strtotime($lastModified));
-        return "ModificationTimestamp gt {$formatted} and MlgCanView eq true";
+        return "ModificationTimestamp gt {$formatted} and {$statusFilter}";
     }
 
     /**
@@ -129,7 +131,7 @@ class BridgeApiClient
      */
     public function buildResyncFilter(): string
     {
-        return "MlgCanView eq true";
+        return "(StandardStatus eq 'Active' or StandardStatus eq 'Pending' or StandardStatus eq 'Active Under Contract')";
     }
 
     /**

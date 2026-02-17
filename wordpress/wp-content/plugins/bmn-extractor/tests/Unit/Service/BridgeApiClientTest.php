@@ -58,7 +58,8 @@ class BridgeApiClientTest extends TestCase
         $client = new BridgeApiClient('t', 'd');
         $filter = $client->buildIncrementalFilter(null);
 
-        $this->assertSame('MlgCanView eq true', $filter);
+        $this->assertStringContainsString("StandardStatus eq 'Active'", $filter);
+        $this->assertStringContainsString("StandardStatus eq 'Pending'", $filter);
     }
 
     public function testBuildIncrementalFilterWithTimestamp(): void
@@ -67,7 +68,7 @@ class BridgeApiClientTest extends TestCase
         $filter = $client->buildIncrementalFilter('2026-02-15 10:30:00');
 
         $this->assertStringContainsString('ModificationTimestamp gt', $filter);
-        $this->assertStringContainsString('MlgCanView eq true', $filter);
+        $this->assertStringContainsString("StandardStatus eq 'Active'", $filter);
         $this->assertStringContainsString('2026-02-15T10:30:00Z', $filter);
     }
 
@@ -80,7 +81,8 @@ class BridgeApiClientTest extends TestCase
         $client = new BridgeApiClient('t', 'd');
         $filter = $client->buildResyncFilter();
 
-        $this->assertSame('MlgCanView eq true', $filter);
+        $this->assertStringContainsString("StandardStatus eq 'Active'", $filter);
+        $this->assertStringContainsString("StandardStatus eq 'Pending'", $filter);
     }
 
     // ------------------------------------------------------------------

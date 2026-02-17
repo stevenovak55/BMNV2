@@ -139,7 +139,7 @@ class ExtractionEngineTest extends TestCase
             ->willReturn(99);
         $this->extractions->method('updateMetrics')->willReturn(true);
         $this->extractions->method('completeRun')->willReturn(true);
-        $this->apiClient->method('buildResyncFilter')->willReturn('MlgCanView eq true');
+        $this->apiClient->method('buildResyncFilter')->willReturn("StandardStatus eq 'Active'");
         $this->apiClient->method('fetchListings')->willReturn(0);
 
         $result = $this->engine->run(isResync: true, triggeredBy: 'manual');
@@ -180,7 +180,7 @@ class ExtractionEngineTest extends TestCase
 
         $this->apiClient->expects($this->once())
             ->method('buildResyncFilter')
-            ->willReturn('MlgCanView eq true');
+            ->willReturn("StandardStatus eq 'Active'");
 
         $this->engine->run(isResync: true);
     }

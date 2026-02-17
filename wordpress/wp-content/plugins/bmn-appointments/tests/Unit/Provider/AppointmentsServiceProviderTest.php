@@ -39,6 +39,7 @@ final class AppointmentsServiceProviderTest extends TestCase
         // Register platform service stubs.
         // DatabaseService is final so we cannot mock it; use an anonymous stub.
         $wpdb = new \wpdb();
+        $GLOBALS['wpdb'] = $wpdb;
 
         $dbService = new class($wpdb) {
             private \wpdb $wpdb;
