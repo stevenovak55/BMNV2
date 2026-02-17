@@ -1,85 +1,84 @@
-# Session Handoff - 2026-02-17 (Session 13)
+# Session Handoff - 2026-02-17 (Session 14)
 
-## Phase: 10 - Exclusive Listings - COMPLETE
+## Phase: 11b - Property Search + Detail Pages - COMPLETE
 
 ## What Was Accomplished This Session
 
-### Pre-Phase: Continuation from Session 12
-- Session 12 ran out of context mid-Phase 10; background agents had created source files and test files with bugs
-- Controller files had wrong namespace (`BMN\Exclusive\Services\` instead of `BMN\Exclusive\Service\`)
-- Controllers passed `$user` (WP_User) instead of `$user->ID` (int) to services
-- Controllers used wrong ApiResponse::error() signature (passing array instead of string)
-- Missing: ExclusiveServiceProvider, bootstrap update, all unit tests needed fixing
+### Phase 11b: Theme adapted from v1 plan to V2 architecture
 
-### Phase 10: bmn-exclusive Plugin (169 tests, 312 assertions)
-Built the complete exclusive listings plugin:
+The Phase 11b plan was originally written against v1 classes (MLD_Query, BNE_MLS_Helpers, etc.). This session adapted all code to the V2 plugin architecture:
 
-1. **Source files fixed/created (10 PHP + 1 bootstrap):**
-   - 2 migrations: bmn_exclusive_listings (64 columns), bmn_exclusive_photos (8 columns)
-   - 2 repositories: ExclusiveListingRepository, ExclusivePhotoRepository
-   - 3 services: ValidationService (pure logic), ListingService (CRUD + status transitions), PhotoService (photo management)
-   - 2 controllers: ListingController (7 routes), PhotoController (4 routes) = 11 endpoints
-   - 1 provider: ExclusiveServiceProvider
-   - 1 bootstrap: bmn-exclusive.php (platform loaded hook)
+1. **helpers.php rewritten for V2 REST API:**
+   - `bmn_search_properties()` → `rest_do_request('/bmn/v1/properties')`, parses `{data: [...], meta: {total, total_pages}}`
+   - `bmn_get_property_details()` → `rest_do_request('/bmn/v1/properties/{id}')`, returns `data` from response
+   - `bmn_get_property_photos()` → Extracts from detail response (photos included inline as `[{url, category, order}]`)
+   - `bmn_get_property_price_history()` → Extracts from detail response `price_history` field
+   - Removed all v1 class references (MLD_Query, BNE_MLS_Helpers, MLD_Agent_Client_Manager)
+   - Updated autocomplete URL to `bmn/v1/properties/autocomplete`
 
-2. **Controller fixes:**
-   - Fixed namespace imports from `BMN\Exclusive\Services\` to `BMN\Exclusive\Service\`
-   - Fixed all service method calls to pass `$user->ID` (int) instead of `$user` (WP_User)
-   - Fixed ApiResponse::error() calls: `$firstError = reset($result['errors']); return ApiResponse::error($firstError, 422, $result['errors']);`
-   - Fixed `$request->get_json_params()` usage for POST/PUT body data
+2. **All templates updated for V2 field names:**
+   - `address` (not `unparsed_address`), `price` (not `list_price`), `beds` (not `bedrooms_total`), `baths` (not `bathrooms_total`), `sqft` (not `building_area_total`), `status` (not `standard_status`), `lot_size` (not `lot_size_area`)
+   - Agent data comes from `$property['agent']` (included in V2 detail response)
+   - Schools API at `/bmn/v1/schools/nearby` with `ranking.letter_grade` normalization
 
-3. **Test bootstrap enhancement:**
-   - Added full WP_REST_Request stub with `set_body()`, `get_body()`, `get_json_params()` BEFORE platform bootstrap
-   - Also added WP_User stub before platform bootstrap for RestController::getCurrentUser() return type
+3. **functions.php updated for V2:**
+   - Added property URL rewrite rules (`^property/([^/]+)/?` → `mls_number` query var)
+   - Template override at priority 100 (no v1 plugin to conflict with)
+   - All API endpoints updated to `/bmn/v1/` namespace
 
-4. **Test files (9 PHP):** 169 tests, 312 assertions — migrations, repos, services, controllers, provider
+4. **WordPress `page` parameter bug fixed:**
+   - WordPress reserves `page` query var, causing 301 redirects
+   - Changed to `paged` in: `page-property-search.php`, `pagination.php`, `property-search.ts`
 
-5. **Test fixes:**
-   - `testGetNextListingIdFromEmpty`: Changed stub to return '1' (simulating SQL COALESCE result) instead of null
-   - `testSanitizeConvertsBooleanFields`: Removed null test case (null skips `isset()` check)
+5. **Documentation updated:**
+   - Rules 9 and 10 added to CLAUDE.md (never deploy V2 to production, testing is localhost only)
+   - V2 vs V1 architecture comparison table added to CLAUDE.md
 
-### Test Results — Full Suite (1,643 tests, 3,342 assertions)
-| Suite | Tests | Assertions | Status |
-|-------|-------|------------|--------|
-| bmn-platform | 142 | 280 | OK |
-| bmn-extractor | 136 | 332 | OK |
-| bmn-properties | 140 | 280 | OK |
-| bmn-users | 169 | 296 | OK |
-| bmn-schools | 165 | 284 | OK |
-| bmn-appointments | 160 | 307 | OK |
-| bmn-agents | 197 | 377 | OK |
-| bmn-cma | 145 | 292 | OK |
-| bmn-analytics | 88 | 177 | OK |
-| bmn-flip | 132 | 405 | OK |
-| bmn-exclusive | 169 | 312 | OK |
-| **Total** | **1,643** | **3,342** | **ALL PASS** |
+### Integration Tests: 8/8 pass at localhost:8082
+- Homepage (200), Property detail (correct title/photos/specs), Search page 1 (441 results), Search page 2 (pagination), Filtered search (711 results for 3bed/$500k+), Gallery (8 photos), Schools API (2 schools), 404 for invalid property
 
-### Docker Verification
-- Activated bmn-exclusive plugin successfully
-- Hit health endpoint to trigger migration
-- Both tables created: wp_bmn_exclusive_listings (64 columns), wp_bmn_exclusive_photos
-- Endpoints properly return 401 without auth
+## Commits
+- `a48c206` — feat(theme): Phase 11b - Property search and detail pages with V2 API integration
 
-## Patterns Established / Reinforced
+## Docker Environment
+- WordPress: http://localhost:8082 (admin: novak55)
+- phpMyAdmin: http://localhost:8083
+- MySQL: localhost:3307
+- All containers healthy
 
-1. **WP_REST_Request stub layering** — Define richer stub (with body methods) in plugin bootstrap BEFORE platform bootstrap, using `class_exists()` guard
-2. **ApiResponse::error() signature** — First arg is `string $message`, not array. Extract first error with `reset($result['errors'])`
-3. **Service method signatures** — Services take `int $userId`, not `WP_User`. Controllers extract `$user->ID`
-4. **Bathroom normalization** — If only total given, derive full+half. If only full+half given, derive total. Don't overwrite explicit values
-5. **Status transition validation** — Define allowed transitions as const map. Validate before update. Closed is terminal
+## V2 Theme Files (15 templates)
+```
+page-property-search.php
+single-property.php
+template-parts/search/filter-sidebar.php
+template-parts/search/results-grid.php
+template-parts/search/pagination.php
+template-parts/property/photo-gallery.php
+template-parts/property/specs-table.php
+template-parts/property/price-history.php
+template-parts/property/nearby-schools.php
+template-parts/property/agent-card.php
+inc/helpers.php (4 new functions)
+functions.php (rewrite rules, localized data)
+assets/src/ts/components/property-search.ts
+assets/src/ts/components/gallery.ts
+assets/src/ts/main.ts
+```
+
+## Critical V2 Architecture Notes
+- REST namespace: `/bmn/v1/` (NOT `/mld-mobile/v1/`)
+- DB tables: `bmn_properties`, `bmn_media` (NOT `bme_*`)
+- Search response: `{success, data: [...], meta: {total, page, per_page, total_pages}}`
+- Detail response: `{success, data: {listing_id, address, price, beds, baths, photos, agent, price_history}}`
+- Internal dispatch: `rest_do_request()` (no HTTP overhead)
+- Uses `paged` parameter (not `page`) to avoid WordPress 301 redirect
 
 ## Not Yet Done
-- Phase 11: Theme and Web Frontend (templates, Vite build)
+- Phase 11c: Theme polish, remaining pages (about, contact, favorites, etc.)
 - Phase 12: iOS App (SwiftUI rebuild)
 - Phase 13: Migration and Cutover (data migration, DNS)
 
-## Next Session: Phase 11 - Theme and Web Frontend
-- Templates, Vite build system, web UI
-- Follow existing theme scaffold in bmn-theme
-
-## Files Changed
-- 2 rewritten: ListingController.php, PhotoController.php (namespace/interface fixes)
-- 2 new: ExclusiveServiceProvider.php, bmn-exclusive.php bootstrap
-- 9 new: test files (169 tests, 312 assertions)
-- 1 modified: tests/bootstrap.php (WP_REST_Request stub)
-- 3 modified: CLAUDE.md, docs/REBUILD_PROGRESS.md, .context/sessions/latest-session.md
+## Next Session Priorities
+- Visual QA of search and detail pages in browser
+- Fix any styling/layout issues
+- Consider Phase 11c (additional theme pages) or Phase 12 (iOS)

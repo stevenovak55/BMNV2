@@ -15,11 +15,65 @@
 | 8 | CMA and Analytics | Complete | 2026-02-17 | 2026-02-17 | 233/233 | ~85% | CMA reports, comparables, adjustments, analytics tracking, 22 REST endpoints |
 | 9 | Flip Analyzer | Complete | 2026-02-17 | 2026-02-17 | 132/132 | ~85% | ARV, financials, scoring, 15 REST endpoints, 4 tables |
 | 10 | Exclusive Listings | Complete | 2026-02-17 | 2026-02-17 | 169/169 | ~85% | Agent-created listings, photo management, status lifecycle, 11 REST endpoints, 2 tables |
-| 11 | Theme and Web Frontend | Not Started | - | - | - | - | Templates, Vite build |
+| 11a | Theme Foundation | Complete | 2026-02-17 | 2026-02-17 | - | - | Vite + Tailwind + Alpine.js + HTMX, core layout, 16 homepage sections |
+| 11b | Property Search + Detail | Complete | 2026-02-17 | 2026-02-17 | 8 integration | - | Search page, detail page, HTMX partials, photo gallery, 15 templates |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 10 - Exclusive Listings - COMPLETE
+## Current Phase: 11b - Property Search + Detail Pages - COMPLETE
+
+### Objectives
+- [x] Create theme helper functions adapted for V2 REST API (`bmn_search_properties`, `bmn_get_property_details`, `bmn_get_property_photos`, `bmn_get_property_price_history`)
+- [x] Build property search page with HTMX partial rendering and Alpine.js filter state
+- [x] Build property detail page with photo gallery, specs table, price history, nearby schools, agent card
+- [x] Create filter sidebar with location, price, beds/baths, property type, status, school grade, quick filters
+- [x] Create pagination with HTMX partial rendering and browser history support
+- [x] Create TypeScript components: `filterState` (search) and `photoGallery` (detail)
+- [x] Add property URL rewrite rules in theme functions.php
+- [x] Fix WordPress `page` parameter conflict (changed to `paged` throughout)
+- [x] All 8 integration tests pass on localhost:8082
+
+### Deliverables
+
+**Theme files (15 new/modified):**
+- `inc/helpers.php` — 4 new helper functions using V2 REST API via `rest_do_request()`
+- `functions.php` — Property rewrite rules, query vars, template override, localized script data
+- `page-property-search.php` — Search page template with HTMX partial rendering
+- `single-property.php` — Property detail page template
+- `template-parts/search/filter-sidebar.php` — Filter sidebar with Alpine.js bindings
+- `template-parts/search/results-grid.php` — Results grid using property-card component
+- `template-parts/search/pagination.php` — Pagination with HTMX + fallback links
+- `template-parts/property/photo-gallery.php` — Photo grid + lightbox
+- `template-parts/property/specs-table.php` — Property details grid
+- `template-parts/property/price-history.php` — Vertical timeline
+- `template-parts/property/nearby-schools.php` — Client-side school fetch via Alpine.js
+- `template-parts/property/agent-card.php` — Agent info + contact form
+- `assets/src/ts/components/property-search.ts` — Alpine.js filterState component
+- `assets/src/ts/components/gallery.ts` — Alpine.js photoGallery component
+- `assets/src/ts/main.ts` — Component registration
+
+**Key architecture decisions:**
+1. `bmn_search_properties()` uses `rest_do_request('/bmn/v1/properties')` — single code path for iOS and web
+2. HTMX partial rendering: `HTTP_HX_REQUEST` header detection returns only `results-grid` fragment
+3. Alpine.js manages filter state client-side; server renders initial state into `x-data` attribute
+4. Schools fetched client-side to avoid blocking server-side render
+5. Uses `paged` parameter (not `page`) to avoid WordPress 301 redirect conflict
+
+### Integration Tests (8/8 pass)
+| Test | What It Verifies |
+|------|-----------------|
+| Homepage | Returns 200, renders correctly |
+| Property detail | Correct title, photos, specs for listing 73464868 |
+| Search page 1 | Returns 441 results with pagination |
+| Search page 2 | Pagination works, different results |
+| Filtered search | 3 beds + $500k+ returns 711 results |
+| Gallery | 8 photos rendered for test listing |
+| Schools API | Returns 2 nearby schools |
+| 404 | Invalid listing returns proper 404 |
+
+---
+
+## Previous Phase: 10 - Exclusive Listings - COMPLETE
 
 ### Objectives
 - [x] Research v1 exclusive listings code (agent-created listings, photo management, status lifecycle)

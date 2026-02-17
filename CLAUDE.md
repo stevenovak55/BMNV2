@@ -3,9 +3,10 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 11b (Property Search + Detail Pages) - IN PROGRESS
-**Status:** Theme v2.1.0 with property search and detail pages. 15 template files, Vite build, HTMX partials.
+## Current Phase: 11b (Property Search + Detail Pages) - COMPLETE
+**Status:** Theme v2.1.0 with property search and detail pages. 15 template files, Vite build, HTMX partials. All 8 integration tests pass on localhost:8082.
 **Previous Phase:** 10 (Exclusive Listings) - 169 tests, 312 assertions, 11 REST endpoints
+**Next Phase:** 11c (Theme polish, remaining pages) or 12 (iOS App)
 
 ## Critical Rules (NEVER VIOLATE)
 
