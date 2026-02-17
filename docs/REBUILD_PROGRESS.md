@@ -11,7 +11,7 @@
 | 4 | User System | Complete | 2026-02-16 | 2026-02-16 | 169/169 | ~85% | Auth, favorites, saved searches, profile, password reset |
 | 5 | Schools | Complete | 2026-02-16 | 2026-02-16 | 165/165 | ~85% | Rankings, data import, filter hook, 7 REST endpoints |
 | 6 | Appointments | Complete | 2026-02-16 | 2026-02-17 | 160/160 | ~85% | Booking, availability, notifications, 10 REST endpoints |
-| 7 | Agent-Client System | Not Started | - | - | - | - | Relationships, sharing |
+| 7 | Agent-Client System | Complete | 2026-02-17 | 2026-02-17 | 197/197 | ~85% | Profiles, relationships, sharing, referrals, activity, 21 REST endpoints |
 | 8 | CMA and Analytics | Not Started | - | - | - | - | Comparables, tracking |
 | 9 | Flip Analyzer | Not Started | - | - | - | - | Investment analysis |
 | 10 | Exclusive Listings | Not Started | - | - | - | - | Agent-created listings |
@@ -19,95 +19,118 @@
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 6 - Appointments - COMPLETE
+## Current Phase: 7 - Agent-Client System - COMPLETE
 
 ### Objectives
-- [x] Create 7 database migrations (staff, appointment_types, availability_rules, appointments, attendees, staff_services, notifications_log)
-- [x] Implement 7 repositories (StaffRepository, AppointmentTypeRepository, AvailabilityRuleRepository, AppointmentRepository, AttendeeRepository, StaffServiceRepository, NotificationLogRepository)
-- [x] Implement AppointmentService (create, cancel, reschedule, rate limiting, policy enforcement, Google Calendar sync)
-- [x] Implement AvailabilityService (slot calculation engine: recurring rules + overrides - blocked - booked - Google busy - past)
-- [x] Implement StaffService (active staff, primary staff, staff-by-type)
-- [x] Implement GoogleCalendarService interface + NullCalendarService (stub) + GoogleCalendarClient (real OAuth2)
-- [x] Implement AppointmentNotificationService (confirmation, cancellation, reschedule, 24h/1h reminders via cron)
-- [x] Implement AppointmentController (10 REST endpoints: types, staff, availability, create, policy, list, detail, cancel, reschedule, reschedule-slots)
-- [x] Implement AppointmentsServiceProvider (DI wiring, rest_api_init, cron registration)
-- [x] Write unit tests for all Phase 6 components (160 tests, 307 assertions)
-- [ ] Docker verification: activate plugin, run migrations, seed data, test all 10 endpoints
+- [x] Create 6 database migrations (agent_profiles, relationships, shared_properties, referral_codes, referral_signups, activity_log)
+- [x] Implement 8 repositories (AgentReadRepository, OfficeReadRepository, AgentProfileRepository, RelationshipRepository, SharedPropertyRepository, ReferralCodeRepository, ReferralSignupRepository, ActivityLogRepository)
+- [x] Implement AgentProfileService (merge MLS + profile + office data, search, featured, save profile, link user)
+- [x] Implement RelationshipService (assign/unassign agent, create client, get agent clients, authorization checks)
+- [x] Implement SharedPropertyService (bulk share, respond, dismiss, record view, agent/client queries)
+- [x] Implement ReferralService (code generation, tracking, stats, agent resolution)
+- [x] Implement ActivityService (log with auto-agent-resolve, feed, client activity, metrics)
+- [x] Implement 5 REST controllers (AgentController, RelationshipController, SharedPropertyController, ReferralController, ActivityController) with 21 endpoints
+- [x] Implement AgentsServiceProvider (DI wiring, migrations, rest_api_init)
+- [x] Write unit tests for all Phase 7 components (197 tests, 377 assertions)
+- [ ] Docker verification: activate plugin, run migrations, test endpoints
 
 ### Deliverables
-- 26 PHP source files (7 migrations, 7 repositories, 3 services, 3 calendar, 1 notification, 1 controller, 1 provider, 1 bootstrap, 1 phpunit config, 1 test bootstrap)
-- 17 test files (160 tests, 307 assertions)
-- 10 REST endpoints covering booking lifecycle
-- Double-booking prevention via START TRANSACTION + UNIQUE constraint
-- Rate limiting via transients (5 attempts per 15 minutes)
-- Policy enforcement: 2h cancel, 4h reschedule, 3 max reschedules
-- Google Calendar abstracted behind interface (NullCalendarService default)
-- Email notifications with `{{variable}}` interpolation and `appointment` context
-- Hourly cron for 24h and 1h appointment reminders
+- 25 PHP source files (6 migrations, 8 repositories, 5 services, 5 controllers, 1 provider)
+- 20 test files + 1 test bootstrap (197 tests, 377 assertions)
+- 1 platform modification (esc_like added to wpdb test stub)
+- 21 REST endpoints covering agent profiles, relationships, sharing, referrals, and activity
+- Read-only access to extractor's bmn_agents/bmn_offices tables
+- Activity logging with automatic agent resolution from relationships
+- Bulk property sharing with upsert (agent shares N listings with N clients)
+- Referral code system with signup tracking and stats
 - All files have `declare(strict_types=1)`
 - All SQL uses `$wpdb->prepare()`
 
 ### Test Breakdown
 | Test File | Tests | Assertions |
 |-----------|-------|------------|
-| MigrationsTest | 14 | ~28 |
-| StaffRepositoryTest | 9 | ~18 |
-| AppointmentTypeRepositoryTest | 8 | ~16 |
-| AvailabilityRuleRepositoryTest | 7 | ~14 |
-| AppointmentRepositoryTest | 10 | ~20 |
-| AttendeeRepositoryTest | 9 | ~18 |
-| StaffServiceRepositoryTest | 8 | ~16 |
-| NotificationLogRepositoryTest | 6 | ~12 |
-| StaffServiceTest | 5 | ~10 |
-| AvailabilityServiceTest | 14 | ~28 |
-| AppointmentServiceTest | 17 | ~34 |
-| NullCalendarServiceTest | 6 | ~12 |
-| GoogleCalendarClientTest | 4 | ~8 |
-| AppointmentNotificationServiceTest | 12 | ~24 |
-| AppointmentControllerTest | 24 | ~48 |
-| AppointmentsServiceProviderTest | 7 | ~14 |
-| **Total** | **160** | **307** |
+| MigrationsTest | 12 | ~24 |
+| AgentReadRepositoryTest | 8 | ~16 |
+| OfficeReadRepositoryTest | 6 | ~12 |
+| AgentProfileRepositoryTest | 9 | ~18 |
+| RelationshipRepositoryTest | 10 | ~20 |
+| SharedPropertyRepositoryTest | 10 | ~20 |
+| ReferralCodeRepositoryTest | 8 | ~16 |
+| ReferralSignupRepositoryTest | 7 | ~14 |
+| ActivityLogRepositoryTest | 7 | ~14 |
+| AgentProfileServiceTest | 14 | ~28 |
+| RelationshipServiceTest | 14 | ~28 |
+| SharedPropertyServiceTest | 12 | ~24 |
+| ReferralServiceTest | 12 | ~24 |
+| ActivityServiceTest | 11 | ~22 |
+| AgentControllerTest | 12 | ~24 |
+| RelationshipControllerTest | 10 | ~20 |
+| SharedPropertyControllerTest | 10 | ~20 |
+| ReferralControllerTest | 10 | ~20 |
+| ActivityControllerTest | 7 | ~14 |
+| AgentsServiceProviderTest | 8 | ~18 |
+| **Total** | **197** | **377** |
 
-### REST Endpoints (10)
+### REST Endpoints (21)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/bmn/v1/appointments/types` | No | List active appointment types |
-| GET | `/bmn/v1/appointments/staff` | No | List active staff (filterable by type) |
-| GET | `/bmn/v1/appointments/availability` | No | Available time slots (date range, type, staff) |
-| POST | `/bmn/v1/appointments` | No* | Create appointment (*optional JWT enrichment) |
-| GET | `/bmn/v1/appointments/policy` | No | Cancellation/reschedule policy |
-| GET | `/bmn/v1/appointments` | Yes | List user's appointments |
-| GET | `/bmn/v1/appointments/{id}` | Yes | Appointment detail |
-| DELETE | `/bmn/v1/appointments/{id}` | Yes | Cancel appointment |
-| PATCH | `/bmn/v1/appointments/{id}/reschedule` | Yes | Reschedule appointment |
-| GET | `/bmn/v1/appointments/{id}/reschedule-slots` | Yes | Available reschedule slots |
+| GET | `/bmn/v1/agents` | No | List active agents (paginated, with office) |
+| GET | `/bmn/v1/agents/featured` | No | Featured agents for homepage |
+| GET | `/bmn/v1/agents/{agent_mls_id}` | No | Single agent with profile + office |
+| PUT | `/bmn/v1/agents/{agent_mls_id}/profile` | Yes | Update extended profile (admin) |
+| POST | `/bmn/v1/agents/{agent_mls_id}/link-user` | Yes | Link MLS agent to WP user (admin) |
+| GET | `/bmn/v1/my-agent` | Yes | Get client's assigned agent |
+| GET | `/bmn/v1/agent/clients` | Yes | Agent's client list (paginated) |
+| POST | `/bmn/v1/agent/clients` | Yes | Create new client + auto-assign |
+| PUT | `/bmn/v1/agent/clients/{client_id}/status` | Yes | Update relationship status |
+| DELETE | `/bmn/v1/agent/clients/{client_id}` | Yes | Unassign client |
+| POST | `/bmn/v1/agent/share-properties` | Yes | Share listing(s) with client(s) |
+| GET | `/bmn/v1/shared-properties` | Yes | Get properties shared with me |
+| PUT | `/bmn/v1/shared-properties/{id}/respond` | Yes | Client responds interested/not |
+| PUT | `/bmn/v1/shared-properties/{id}/dismiss` | Yes | Client dismisses shared listing |
+| GET | `/bmn/v1/agent/referral` | Yes | Get agent's referral code + URL + stats |
+| POST | `/bmn/v1/agent/referral` | Yes | Set/update custom referral code |
+| POST | `/bmn/v1/agent/referral/regenerate` | Yes | Generate new code |
+| GET | `/bmn/v1/agent/referral/stats` | Yes | Detailed referral statistics |
+| GET | `/bmn/v1/agent/activity` | Yes | Agent's client activity feed |
+| GET | `/bmn/v1/agent/metrics` | Yes | Agent dashboard metrics |
+| GET | `/bmn/v1/agent/clients/{client_id}/activity` | Yes | Specific client's activity |
 
 ### Architecture
 ```
-AppointmentController (REST - 10 routes)
-  ├── AppointmentService → AppointmentRepository (transactional booking)
-  │                      → AppointmentTypeRepository (type validation)
-  │                      → AttendeeRepository (multi-attendee)
-  │                      → StaffRepository (staff resolution)
-  │                      → AvailabilityService (slot validation)
-  │                      → GoogleCalendarService (calendar sync)
-  │                      → AppointmentNotificationService (emails)
-  ├── AvailabilityService → AvailabilityRuleRepository (rules engine)
-  │                       → AppointmentRepository (booked slots)
-  │                       → StaffRepository (staff resolution)
-  │                       → GoogleCalendarService (busy times)
-  └── StaffService → StaffRepository
-                   → StaffServiceRepository (staff-type links)
+AgentController (REST - 5 routes, resource='agents')
+  └── AgentProfileService → AgentReadRepository (bmn_agents, read-only)
+                           → OfficeReadRepository (bmn_offices, read-only)
+                           → AgentProfileRepository (bmn_agent_profiles, CRUD)
+
+RelationshipController (REST - 5 routes)
+  └── RelationshipService → RelationshipRepository (bmn_agent_client_relationships)
+
+SharedPropertyController (REST - 4 routes)
+  └── SharedPropertyService → SharedPropertyRepository (bmn_shared_properties)
+
+ReferralController (REST - 4 routes)
+  └── ReferralService → ReferralCodeRepository (bmn_agent_referral_codes)
+                       → ReferralSignupRepository (bmn_referral_signups)
+
+ActivityController (REST - 3 routes)
+  └── ActivityService → ActivityLogRepository (bmn_agent_activity_log)
+                       → RelationshipRepository (auto-resolve agent)
 ```
 
 ### Key Design Decisions
-1. **Transactional booking** — `START TRANSACTION` + UNIQUE constraint on `(staff_id, appointment_date, start_time)` prevents double-booking race conditions.
-2. **Rate limiting via transients** — 5 bookings per 15 minutes per email+IP. Lightweight, no extra table.
-3. **NullCalendarService default** — Google Calendar abstracted behind interface. NullCalendarService bound by default; swap to GoogleCalendarClient when OAuth credentials are configured.
-4. **Slot calculation engine** — Merges recurring rules + specific_date overrides, subtracts blocked dates, booked appointments (with buffers), Google busy times, and past slots. 15-minute increment default.
-5. **Cron-based reminders** — Hourly cron sends 24h and 1h reminders to all attendees. Uses `time()` for `wp_schedule_event()` (not `current_time('timestamp')`).
-6. **Email context = 'appointment'** — Notifications use platform EmailService with `context => 'appointment'` for proper footer.
-7. **Anonymous stubs for final classes** — Platform's `DatabaseService` and `AuthMiddleware` are `final`; provider tests use anonymous class stubs instead of PHPUnit mocks.
+1. **Read extractor tables, don't duplicate** — Agent name/email/phone come from `bmn_agents` (maintained by extractor). `bmn_agent_profiles` only adds extended fields (bio, photo, specialties). Merge at service layer.
+2. **`agent_mls_id` for profiles, `user_id` for relationships** — Profiles extend MLS agent records (may not have WP accounts). Relationships are between WP users (both parties must have accounts).
+3. **Activity log resolves agent automatically** — `logActivity()` called with just `client_user_id`, service looks up assigned agent. Simplifies integration hooks.
+4. **Bulk property sharing with upsert** — `shareProperties()` accepts arrays of clientUserIds and listingIds, creates/updates all combinations. Uses INSERT + ON DUPLICATE KEY UPDATE pattern.
+5. **Referral codes are unique globally** — Custom codes validated for uniqueness. Auto-generated codes use 8-char random strings.
+6. **Real AuthMiddleware in tests** — `AuthMiddleware` is `final`, so provider tests create real instances with mocked `AuthService` interface (not anonymous stubs).
+
+---
+
+## Previous Phase: 6 - Appointments - COMPLETE
+
+(See session 8 handoff for details — 160 tests, 307 assertions, 10 REST endpoints)
 
 ---
 

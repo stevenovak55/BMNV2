@@ -767,6 +767,11 @@ if (! class_exists('wpdb')) {
         /** @var array Canned return value for get_col(). */
         public array $get_col_result = [];
 
+        public function esc_like(string $text): string
+        {
+            return addcslashes($text, '_%\\');
+        }
+
         public function get_charset_collate(): string
         {
             return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
