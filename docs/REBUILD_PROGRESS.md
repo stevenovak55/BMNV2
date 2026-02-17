@@ -13,13 +13,118 @@
 | 6 | Appointments | Complete | 2026-02-16 | 2026-02-17 | 160/160 | ~85% | Booking, availability, notifications, 10 REST endpoints |
 | 7 | Agent-Client System | Complete | 2026-02-17 | 2026-02-17 | 197/197 | ~85% | Profiles, relationships, sharing, referrals, activity, 21 REST endpoints |
 | 8 | CMA and Analytics | Complete | 2026-02-17 | 2026-02-17 | 233/233 | ~85% | CMA reports, comparables, adjustments, analytics tracking, 22 REST endpoints |
-| 9 | Flip Analyzer | Not Started | - | - | - | - | Investment analysis |
+| 9 | Flip Analyzer | Complete | 2026-02-17 | 2026-02-17 | 132/132 | ~85% | ARV, financials, scoring, 15 REST endpoints, 4 tables |
 | 10 | Exclusive Listings | Not Started | - | - | - | - | Agent-created listings |
 | 11 | Theme and Web Frontend | Not Started | - | - | - | - | Templates, Vite build |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 8 - CMA and Analytics - COMPLETE
+## Current Phase: 9 - Flip Analyzer - COMPLETE
+
+### Objectives
+- [x] Research v1 flip analyzer business logic (ARV, financials, scoring, strategies)
+- [x] Docker verification for Phase 7+8 (activated plugins, verified 13 tables, tested endpoints, fixed bmn-cma/bmn-analytics bootstrap bug)
+- [x] Build bmn-flip plugin with 4 migrations, 4 repositories, 4 services, 2 controllers, 1 provider
+- [x] Implement ARV calculation with Haversine comp search, appraisal-style adjustments, confidence scoring
+- [x] Implement financial analysis: rehab estimation, transaction/holding costs, cash/financed scenarios, MAO, BRRRR, rental
+- [x] Implement multi-strategy viability scoring, disqualification checks, risk grading (A-F)
+- [x] Implement report management with cascade deletes and monitor tracking
+- [x] Write 132 tests (405 assertions) covering all components
+- [x] All 1,474 tests pass across 10 suites (zero regressions)
+
+### Deliverables
+
+**bmn-flip plugin:**
+- 15 PHP source files (4 migrations, 4 repositories, 4 services, 2 controllers, 1 provider)
+- 12 test files + 1 test bootstrap (132 tests, 405 assertions)
+- 4 database tables: bmn_flip_analyses, bmn_flip_comparables, bmn_flip_reports, bmn_flip_monitor_seen
+- 15 REST endpoints (9 flip analysis + 6 report management)
+- Haversine-based ARV comp search with expanding radius tiers [0.5, 1.0, 2.0, 5.0, 10.0] miles
+- Appraisal-style adjustments: bedroom $7,500, bathroom $5,000, sqft $50/sf, year_built $500/yr, garage $5,000, lot_size $10,000/ac; 25% per-adjustment cap, 40% gross cap
+- 5-factor confidence scoring (comp count 40pts, distance 30pts, recency 20pts, variance 10pts)
+- Neighborhood ceiling at P90 of comp sale prices
+- Financial modeling: rehab cost (age-based with lead paint), hold period, transaction costs (4.5% commission, 1.5%/1% closing, 0.456% transfer tax), holding costs, hard money (10.5%/2pts/80%LTV)
+- Multi-strategy analysis: Flip (cash + financed ROI), Rental (NOI, cap rate, depreciation, tax shelter), BRRRR (refi 75%LTV/7.2%/30yr, DSCR)
+- MAO calculation (classic 70% rule + adjusted), breakeven ARV
+- Disqualification checks (price<$100K, no comps, area<600 sqft)
+- Viability thresholds: Flip (profit>$25K & ROI>15%), Rental (cap>=3% & cash_flow>-$200), BRRRR (DSCR>=0.9)
+- Composite scoring (70% financial + 20% property + 10% market)
+- Risk grading: A(>=80), B(>=65), C(>=50), D(>=35), F(<35)
+- Report management with ownership checks and cascade delete
+
+**Bug fixes (prior phases):**
+- Fixed bmn-cma and bmn-analytics bootstrap: `bmn_platform()` → `$app->getContainer()`
+- Docker verified Phase 7+8: all 13 tables created, all endpoints responding
+
+### Test Breakdown — bmn-flip (132 tests, 405 assertions)
+| Test File | Tests | Assertions |
+|-----------|-------|------------|
+| MigrationsTest | 8 | ~16 |
+| FlipAnalysisRepositoryTest | 10 | ~30 |
+| FlipComparableRepositoryTest | 6 | ~18 |
+| FlipReportRepositoryTest | 8 | ~24 |
+| MonitorSeenRepositoryTest | 6 | ~18 |
+| ArvServiceTest | 12 | ~48 |
+| FinancialServiceTest | 25 | ~100 |
+| FlipAnalysisServiceTest | 12 | ~48 |
+| ReportServiceTest | 10 | ~30 |
+| FlipControllerTest | 14 | ~35 |
+| ReportControllerTest | 10 | ~25 |
+| FlipServiceProviderTest | 11 | ~33 |
+| **Total** | **132** | **405** |
+
+### Flip REST Endpoints (9)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/bmn/v1/flip/analyze` | Yes | Analyze a single property |
+| GET | `/bmn/v1/flip/results` | Yes | List analysis results for a report |
+| GET | `/bmn/v1/flip/results/{id}` | Yes | Get single analysis result |
+| GET | `/bmn/v1/flip/results/{id}/comps` | Yes | Get comparables for an analysis |
+| GET | `/bmn/v1/flip/summary` | Yes | Per-city summary stats |
+| POST | `/bmn/v1/flip/arv` | Yes | Calculate ARV only (without full analysis) |
+| GET | `/bmn/v1/flip/config/cities` | Yes | Get target cities |
+| POST | `/bmn/v1/flip/config/cities` | Yes | Update target cities (admin) |
+| GET | `/bmn/v1/flip/config/weights` | Yes | Get scoring weights |
+
+### Report REST Endpoints (6)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/bmn/v1/flip/reports` | Yes | List user's reports |
+| POST | `/bmn/v1/flip/reports` | Yes | Create a new report |
+| GET | `/bmn/v1/flip/reports/{id}` | Yes | Get single report |
+| PUT | `/bmn/v1/flip/reports/{id}` | Yes | Update report |
+| DELETE | `/bmn/v1/flip/reports/{id}` | Yes | Delete report (cascade) |
+| POST | `/bmn/v1/flip/reports/{id}/favorite` | Yes | Toggle favorite |
+
+### Architecture
+```
+bmn-flip:
+  FlipController (REST - 9 routes, resource='flip')
+    └── FlipAnalysisService → ArvService → wpdb (bmn_properties, Haversine comp search)
+                             → FinancialService (pure logic, no deps)
+                             → FlipAnalysisRepository (bmn_flip_analyses)
+                             → FlipComparableRepository (bmn_flip_comparables)
+    └── ArvService → wpdb (standalone ARV calculation)
+
+  ReportController (REST - 6 routes, resource='flip/reports')
+    └── ReportService → FlipReportRepository (bmn_flip_reports)
+                       → FlipAnalysisRepository
+                       → FlipComparableRepository
+                       → MonitorSeenRepository (bmn_flip_monitor_seen)
+```
+
+### Key Design Decisions
+1. **Pure financial logic** — `FinancialService` has zero dependencies (no DB, no WP). All rehab estimation, ROI calculation, MAO, rental analysis, and BRRRR logic is deterministic and fully unit-testable.
+2. **ARV reads extractor's bmn_properties table** — Comparable search uses Haversine formula directly against the extractor's properties table. No data duplication.
+3. **Multi-strategy analysis** — Every property gets analyzed for Flip, Rental, and BRRRR viability with separate thresholds per strategy.
+4. **Disqualification before scoring** — Properties that fail hard rules (too cheap, no comps, too small) are flagged immediately without wasting analysis cycles.
+5. **Cascade delete on reports** — Deleting a report removes all associated analyses, comparables, and monitor-seen records.
+6. **Monitor tracking** — `bmn_flip_monitor_seen` with UNIQUE KEY (report_id, listing_id) and INSERT ON DUPLICATE KEY UPDATE pattern for efficient new-listing detection.
+7. **Expanding radius tiers** — ARV comp search starts at 0.5 miles and expands through [1.0, 2.0, 5.0, 10.0] until enough comps found (min 3).
+
+---
+
+## Previous Phase: 8 - CMA and Analytics - COMPLETE
 
 ### Objectives
 - [x] Build bmn-cma plugin with 4 migrations, 4 repositories, 4 services, 2 controllers, 1 provider
@@ -28,7 +133,7 @@
 - [x] Implement analytics event tracking, session management, daily aggregation via WP-Cron
 - [x] Write 145 CMA tests (292 assertions) and 88 analytics tests (177 assertions)
 - [x] All 1,342 tests pass across 9 suites (zero regressions)
-- [ ] Docker verification: activate plugins, run migrations, test endpoints
+- [x] Docker verification: activate plugins, run migrations, test endpoints
 
 ### Deliverables
 

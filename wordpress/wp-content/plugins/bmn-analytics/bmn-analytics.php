@@ -42,8 +42,8 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 }
 
 // Boot plugin when platform is ready.
-add_action('bmn_platform_loaded', function (): void {
-    $container = bmn_platform()->getContainer();
+add_action('bmn_platform_loaded', function (\BMN\Platform\Core\Application $app): void {
+    $container = $app->getContainer();
     $provider = new \BMN\Analytics\Provider\AnalyticsServiceProvider();
     $provider->register($container);
     $provider->boot($container);
