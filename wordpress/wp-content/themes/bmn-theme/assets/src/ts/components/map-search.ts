@@ -15,6 +15,7 @@ import {
   type SearchFilters,
   createFilterState,
   filtersToParams,
+  filtersToApiParams,
   filtersFromParams,
   toggleArrayValue,
   getActiveChips,
@@ -401,7 +402,7 @@ export function mapSearchComponent() {
 
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
-      const params = filtersToParams(this._getFilters());
+      const params = filtersToApiParams(this._getFilters());
 
       params.set('bounds', [
         sw.lat().toFixed(6),

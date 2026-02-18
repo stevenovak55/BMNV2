@@ -243,7 +243,16 @@ class FilterBuilder
         }
 
         if (!empty($filters['property_sub_type'])) {
-            $conditions[] = $this->wpdb->prepare('property_sub_type = %s', $filters['property_sub_type']);
+            $types = array_map('trim', explode(',', $filters['property_sub_type']));
+            if (count($types) === 1) {
+                $conditions[] = $this->wpdb->prepare('property_sub_type = %s', $types[0]);
+            } else {
+                $placeholders = implode(',', array_fill(0, count($types), '%s'));
+                $conditions[] = $this->wpdb->prepare(
+                    "property_sub_type IN ({$placeholders})",
+                    ...$types
+                );
+            }
         }
     }
 

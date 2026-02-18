@@ -267,6 +267,39 @@ export function hasActiveFilters(filters: SearchFilters): boolean {
   return getActiveChips(filters).length > 0;
 }
 
+/**
+ * Translate user-facing filter params → API param names.
+ * Used by map search which calls the REST API directly from JS.
+ */
+export function filtersToApiParams(filters: SearchFilters): URLSearchParams {
+  const params = filtersToParams(filters);
+
+  const renames: Record<string, string> = {
+    property_type: 'property_sub_type',
+    street: 'street_name',
+    garage: 'garage_spaces_min',
+    virtual_tour: 'has_virtual_tour',
+    fireplace: 'has_fireplace',
+    open_house: 'open_house_only',
+    exclusive: 'exclusive_only',
+  };
+
+  for (const [from, to] of Object.entries(renames)) {
+    const val = params.get(from);
+    if (val) {
+      params.set(to, val);
+      params.delete(from);
+    }
+  }
+
+  // Sort value mapping
+  if (params.get('sort') === 'newest' || !params.has('sort')) {
+    params.set('sort', 'list_date_desc');
+  }
+
+  return params;
+}
+
 export function formatPriceRange(min: string, max: string): string {
   const fmt = (v: string) => {
     const n = Number(v);

@@ -206,7 +206,7 @@ function bmn_get_property_types(): array {
         'Single Family Residence',
         'Condominium',
         'Multi Family',
-        'Townhouse',
+        'Attached (Townhouse/Rowhouse/Duplex)',
     );
 }
 
@@ -393,6 +393,42 @@ function bmn_build_price_history_from_property(?array $property): array {
 }
 
 /**
+ * Translate theme filter param names to API param names.
+ *
+ * The theme uses user-friendly names (property_type, garage, etc.)
+ * that differ from the API's internal names (property_sub_type,
+ * garage_spaces_min, etc.).
+ *
+ * @param array $params Theme filter params
+ * @return array API-compatible params
+ */
+function bmn_translate_filter_params(array $params): array {
+    $renames = array(
+        'property_type' => 'property_sub_type',
+        'street'        => 'street_name',
+        'garage'        => 'garage_spaces_min',
+        'virtual_tour'  => 'has_virtual_tour',
+        'fireplace'     => 'has_fireplace',
+        'open_house'    => 'open_house_only',
+        'exclusive'     => 'exclusive_only',
+    );
+
+    foreach ($renames as $from => $to) {
+        if (isset($params[$from]) && $params[$from] !== '') {
+            $params[$to] = $params[$from];
+            unset($params[$from]);
+        }
+    }
+
+    // Sort value mapping
+    if (isset($params['sort']) && $params['sort'] === 'newest') {
+        $params['sort'] = 'list_date_desc';
+    }
+
+    return $params;
+}
+
+/**
  * Search properties via V2 REST API
  *
  * Uses rest_do_request() to call /bmn/v1/properties.
@@ -410,6 +446,9 @@ function bmn_search_properties(array $filters = array()): array {
         'sort'     => 'newest',
     );
     $params = wp_parse_args($filters, $defaults);
+
+    // Translate theme filter names → API parameter names
+    $params = bmn_translate_filter_params($params);
 
     $request = new WP_REST_Request('GET', '/bmn/v1/properties');
     foreach ($params as $key => $value) {
