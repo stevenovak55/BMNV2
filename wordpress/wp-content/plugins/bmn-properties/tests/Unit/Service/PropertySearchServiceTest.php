@@ -269,7 +269,7 @@ final class PropertySearchServiceTest extends TestCase
         $this->repository->expects($this->once())
             ->method('searchProperties')
             ->with(
-                '*',
+                PropertySearchRepository::LIST_SELECT,
                 $this->anything(),
                 $this->anything(),
                 $this->greaterThanOrEqual(250), // 25 * 10 = 250

@@ -41,6 +41,8 @@ final class PropertyListItem
             'original_price'   => $row->original_list_price !== null ? (float) $row->original_list_price : null,
             'beds'             => $row->bedrooms_total !== null ? (int) $row->bedrooms_total : null,
             'baths'            => $row->bathrooms_total !== null ? (int) $row->bathrooms_total : null,
+            'baths_full'       => isset($row->bathrooms_full) && $row->bathrooms_full !== null ? (int) $row->bathrooms_full : null,
+            'baths_half'       => isset($row->bathrooms_half) && $row->bathrooms_half !== null ? (int) $row->bathrooms_half : null,
             'sqft'             => $row->living_area !== null ? (int) $row->living_area : null,
             'property_type'    => $row->property_type ?? null,
             'property_sub_type' => $row->property_sub_type ?? null,
@@ -61,6 +63,23 @@ final class PropertyListItem
                 'end_time'   => $nextOpenHouse->open_house_end_time,
             ] : null,
             'is_exclusive'     => is_numeric($row->listing_id) && (int) $row->listing_id < 1000000,
+            'grouping_address' => self::buildGroupingAddress($row),
         ];
+    }
+
+    /**
+     * Build a grouping address for V1 API parity.
+     *
+     * Combines street_number + street_name (without unit) so that
+     * multi-unit properties at the same address group together.
+     */
+    private static function buildGroupingAddress(object $row): ?string
+    {
+        $parts = array_filter([
+            $row->street_number ?? null,
+            $row->street_name ?? null,
+        ]);
+
+        return $parts !== [] ? implode(' ', $parts) : null;
     }
 }

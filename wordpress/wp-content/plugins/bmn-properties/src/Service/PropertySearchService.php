@@ -74,9 +74,9 @@ class PropertySearchService
             $fetchLimit = max($fetchLimit, ($page * $perPage) * $filterResult->overfetchMultiplier);
         }
 
-        // Query database.
+        // Query database — use explicit column list to reduce I/O (Fix 7, Session 24).
         $rows = $this->repository->searchProperties(
-            '*',
+            PropertySearchRepository::LIST_SELECT,
             $filterResult->where,
             $filterResult->orderBy,
             $fetchLimit,

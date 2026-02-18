@@ -156,6 +156,11 @@ class DataNormalizer
         'contingency'              => 'Contingency',
         'private_remarks'          => 'PrivateRemarks',
         'structure_type'           => 'StructureType',
+
+        // MA compliance fields (Fix 3, Session 24).
+        'lead_paint'               => 'MLSPIN_LEAD_PAINT',
+        'title5'                   => 'MLSPIN_TITLE5',
+        'disclosures'              => 'Disclosures',
     ];
 
     /**
@@ -270,6 +275,10 @@ class DataNormalizer
             $row['living_area'] ?? null,
         );
 
+        // Computed: pet detail columns from PetsAllowed array (Fix 3, Session 24).
+        $row['pets_dogs_allowed'] = $this->parsePetAllowed($apiListing, 'Dogs');
+        $row['pets_cats_allowed'] = $this->parsePetAllowed($apiListing, 'Cats');
+
         // Store complete API response as JSON for fields not mapped to columns.
         $row['extra_data'] = json_encode($apiListing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -326,6 +335,67 @@ class DataNormalizer
         $row['listing_key'] = $listingKey;
 
         return $row;
+    }
+
+    /**
+     * Extract room-level data from a RESO API listing into bmn_rooms rows.
+     *
+     * The RESO API returns room data as flat fields with the naming pattern
+     * Room[RoomName][Attribute] (e.g., RoomMasterBedroomArea, RoomDiningRoomLevel).
+     * This method aggregates those flat fields into per-room rows.
+     *
+     * @param array  $apiListing Raw RESO API listing data.
+     * @param string $listingKey The listing_key this room data belongs to.
+     * @return array<int, array{listing_key: string, room_type: string, room_level: ?string, room_dimensions: ?string, room_area: ?float, room_description: ?string}>
+     */
+    public function normalizeRooms(array $apiListing, string $listingKey): array
+    {
+        $rooms = [];
+        $pattern = '/^Room([a-zA-Z0-9]+)(Area|Length|Width|Level|Features|Description)$/';
+
+        foreach ($apiListing as $key => $value) {
+            if (!preg_match($pattern, $key, $matches)) {
+                continue;
+            }
+
+            $roomName = $matches[1];
+            $attribute = strtolower($matches[2]);
+
+            if (!isset($rooms[$roomName])) {
+                $rooms[$roomName] = [];
+            }
+
+            $rooms[$roomName][$attribute] = is_string($value) ? trim($value) : $value;
+        }
+
+        if ($rooms === []) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($rooms as $roomName => $attributes) {
+            // Format "MasterBedroom" → "Master Bedroom".
+            $formattedName = (string) preg_replace('/(?<!^)[A-Z]/', ' $0', $roomName);
+
+            $length = $attributes['length'] ?? null;
+            $width = $attributes['width'] ?? null;
+            $dimensions = ($length !== null && $width !== null) ? "{$length} x {$width}" : null;
+
+            $area = isset($attributes['area']) ? (float) $attributes['area'] : null;
+
+            $description = $attributes['features'] ?? $attributes['description'] ?? null;
+
+            $rows[] = [
+                'listing_key'      => $listingKey,
+                'room_type'        => $formattedName,
+                'room_level'       => $attributes['level'] ?? null,
+                'room_dimensions'  => $dimensions,
+                'room_area'        => $area,
+                'room_description' => is_string($description) ? $description : null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -496,6 +566,44 @@ class DataNormalizer
         } catch (\Exception) {
             return null;
         }
+    }
+
+    /**
+     * Check if a specific pet type is in the PetsAllowed array.
+     *
+     * The RESO API returns PetsAllowed as an array of strings like
+     * ["Dogs OK", "Cats OK", "No Pets"]. We check for the pet type
+     * keyword and return a boolean column value.
+     *
+     * @param array  $apiListing Raw RESO API listing data.
+     * @param string $petType    Pet type keyword to search for (e.g., 'Dogs', 'Cats').
+     * @return int|null 1 if allowed, 0 if explicitly not, null if no data.
+     */
+    private function parsePetAllowed(array $apiListing, string $petType): ?int
+    {
+        $pets = $apiListing['PetsAllowed'] ?? null;
+
+        if ($pets === null) {
+            return null;
+        }
+
+        // PetsAllowed can be an array or a comma-separated string.
+        if (is_string($pets)) {
+            $pets = array_map('trim', explode(',', $pets));
+        }
+
+        if (!is_array($pets) || $pets === []) {
+            return null;
+        }
+
+        $haystack = implode(' ', $pets);
+
+        // "No Pets" or "No" means none allowed.
+        if (stripos($haystack, 'No Pets') !== false || $haystack === 'No') {
+            return 0;
+        }
+
+        return stripos($haystack, $petType) !== false ? 1 : 0;
     }
 
     /**

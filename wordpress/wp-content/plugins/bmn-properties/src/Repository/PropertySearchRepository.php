@@ -13,6 +13,49 @@ namespace BMN\Properties\Repository;
  */
 class PropertySearchRepository
 {
+    /**
+     * Columns needed for list/search queries (~25 instead of 126).
+     *
+     * Reduces I/O for paginated results. Use SELECT * only for single-property
+     * detail views. Session 24 test 2.12 showed 2.9x penalty from SELECT *.
+     */
+    public const LIST_COLUMNS = [
+        'listing_key',
+        'listing_id',
+        'unparsed_address',
+        'street_number',
+        'street_name',
+        'unit_number',
+        'city',
+        'state_or_province',
+        'postal_code',
+        'list_price',
+        'original_list_price',
+        'close_price',
+        'bedrooms_total',
+        'bathrooms_total',
+        'bathrooms_full',
+        'bathrooms_half',
+        'living_area',
+        'lot_size_acres',
+        'year_built',
+        'garage_spaces',
+        'property_type',
+        'property_sub_type',
+        'standard_status',
+        'latitude',
+        'longitude',
+        'listing_contract_date',
+        'days_on_market',
+        'main_photo_url',
+        'is_archived',
+    ];
+
+    /**
+     * Comma-separated column list for search queries.
+     */
+    public const LIST_SELECT = 'listing_key, listing_id, unparsed_address, street_number, street_name, unit_number, city, state_or_province, postal_code, list_price, original_list_price, close_price, bedrooms_total, bathrooms_total, bathrooms_full, bathrooms_half, living_area, lot_size_acres, year_built, garage_spaces, property_type, property_sub_type, standard_status, latitude, longitude, listing_contract_date, days_on_market, main_photo_url, is_archived';
+
     private \wpdb $wpdb;
     private string $propertiesTable;
     private string $mediaTable;
