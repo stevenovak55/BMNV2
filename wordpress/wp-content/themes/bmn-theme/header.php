@@ -34,7 +34,33 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
 
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm"
-            x-data="{ userMenuOpen: false }">
+            x-data="{
+                userMenuOpen: false,
+                jwtLoggedIn: false,
+                jwtUserName: '',
+                init() {
+                    const token = localStorage.getItem('bmn_token');
+                    this.jwtLoggedIn = !!token;
+                    if (token) {
+                        try {
+                            const user = JSON.parse(localStorage.getItem('bmn_user') || '{}');
+                            this.jwtUserName = user.name || 'Account';
+                        } catch { this.jwtUserName = 'Account'; }
+                    }
+                },
+                jwtLogout() {
+                    const token = localStorage.getItem('bmn_token');
+                    if (token) {
+                        fetch(bmnTheme.restUrl + 'bmn/v1/auth/logout', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+                        }).catch(() => {});
+                    }
+                    localStorage.removeItem('bmn_token');
+                    localStorage.removeItem('bmn_user');
+                    window.location.href = bmnTheme.homeUrl;
+                }
+            }">
         <div class="container mx-auto px-4 lg:px-8">
             <div class="flex items-center justify-between h-16 lg:h-20">
                 <!-- Logo -->
@@ -80,59 +106,57 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
 
                     <!-- User Menu (desktop) -->
                     <div class="hidden lg:block relative">
-                        <?php if (is_user_logged_in()) :
-                            $current_user = wp_get_current_user();
-                            $avatar_url = bmn_get_user_avatar_url($current_user->ID, 36);
-                            $display_name = $current_user->display_name ?: $current_user->user_login;
-                        ?>
-                            <button @click="userMenuOpen = !userMenuOpen"
-                                    @click.outside="userMenuOpen = false"
-                                    class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                                    aria-expanded="false"
-                                    :aria-expanded="userMenuOpen">
-                                <img src="<?php echo esc_url($avatar_url); ?>"
-                                     alt=""
-                                     class="w-8 h-8 rounded-full object-cover">
-                                <span class="text-sm font-medium text-gray-700"><?php echo esc_html($display_name); ?></span>
-                                <svg class="w-4 h-4 text-gray-400 transition-transform" :class="userMenuOpen && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            </button>
+                        <!-- Logged-in state (JWT token present) -->
+                        <template x-if="jwtLoggedIn">
+                            <div>
+                                <button @click="userMenuOpen = !userMenuOpen"
+                                        @click.outside="userMenuOpen = false"
+                                        class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                                        :aria-expanded="userMenuOpen">
+                                    <span class="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center text-sm font-bold text-navy-700"
+                                          x-text="jwtUserName.charAt(0).toUpperCase()"></span>
+                                    <span class="text-sm font-medium text-gray-700" x-text="jwtUserName"></span>
+                                    <svg class="w-4 h-4 text-gray-400 transition-transform" :class="userMenuOpen && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
 
-                            <!-- Dropdown -->
-                            <div x-show="userMenuOpen"
-                                 x-transition:enter="transition ease-out duration-100"
-                                 x-transition:enter-start="opacity-0 scale-95"
-                                 x-transition:enter-end="opacity-100 scale-100"
-                                 x-transition:leave="transition ease-in duration-75"
-                                 x-transition:leave-start="opacity-100 scale-100"
-                                 x-transition:leave-end="opacity-0 scale-95"
-                                 class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50"
-                                 x-cloak>
-                                <a href="<?php echo esc_url(home_url('/my-dashboard/')); ?>" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                                    Dashboard
-                                </a>
-                                <a href="<?php echo esc_url(home_url('/my-dashboard/#favorites')); ?>" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                                    Favorites
-                                </a>
-                                <hr class="my-1 border-gray-100">
-                                <a href="<?php echo esc_url(wp_logout_url(home_url('/'))); ?>" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                                    Log Out
-                                </a>
+                                <!-- Dropdown -->
+                                <div x-show="userMenuOpen"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="opacity-100 scale-100"
+                                     x-transition:leave-end="opacity-0 scale-95"
+                                     class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50"
+                                     x-cloak>
+                                    <a href="<?php echo esc_url(home_url('/my-dashboard/')); ?>" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                                        Dashboard
+                                    </a>
+                                    <a href="<?php echo esc_url(home_url('/my-dashboard/#favorites')); ?>" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                        Favorites
+                                    </a>
+                                    <hr class="my-1 border-gray-100">
+                                    <button @click="jwtLogout()" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                        Log Out
+                                    </button>
+                                </div>
                             </div>
-                        <?php else : ?>
-                            <div class="flex items-center gap-2">
-                                <a href="<?php echo esc_url(home_url('/login/')); ?>" class="text-sm font-medium text-gray-600 hover:text-navy-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-                                    Log In
-                                </a>
-                                <a href="<?php echo esc_url(home_url('/signup/')); ?>" class="btn-primary text-sm !py-2 !px-4">
-                                    Sign Up
-                                </a>
-                            </div>
-                        <?php endif; ?>
+                        </template>
+
+                        <!-- Logged-out state -->
+                        <div x-show="!jwtLoggedIn" class="flex items-center gap-2">
+                            <a href="<?php echo esc_url(home_url('/login/')); ?>" class="text-sm font-medium text-gray-600 hover:text-navy-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                Log In
+                            </a>
+                            <a href="<?php echo esc_url(home_url('/signup/')); ?>" class="btn-primary text-sm !py-2 !px-4">
+                                Sign Up
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Mobile Hamburger -->
@@ -207,18 +231,21 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
             </nav>
 
             <!-- Drawer User Section -->
-            <div class="border-t border-gray-100 px-4 py-4">
-                <?php if (is_user_logged_in()) :
-                    $drawer_user = wp_get_current_user();
-                    $drawer_avatar = bmn_get_user_avatar_url($drawer_user->ID, 40);
-                    $drawer_name = $drawer_user->display_name ?: $drawer_user->user_login;
-                ?>
-                    <div x-data="{ expanded: false }">
+            <div class="border-t border-gray-100 px-4 py-4"
+                 x-data="{
+                     drawerLoggedIn: !!localStorage.getItem('bmn_token'),
+                     drawerUserName: (() => { try { return JSON.parse(localStorage.getItem('bmn_user') || '{}').name || 'Account'; } catch { return 'Account'; } })(),
+                     expanded: false
+                 }">
+                <!-- Logged-in state -->
+                <template x-if="drawerLoggedIn">
+                    <div>
                         <button @click="expanded = !expanded"
                                 class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
                                 :aria-expanded="expanded">
-                            <img src="<?php echo esc_url($drawer_avatar); ?>" alt="" class="w-9 h-9 rounded-full object-cover">
-                            <span class="flex-1 text-left text-sm font-medium text-gray-700"><?php echo esc_html($drawer_name); ?></span>
+                            <span class="w-9 h-9 rounded-full bg-navy-100 flex items-center justify-center text-sm font-bold text-navy-700"
+                                  x-text="drawerUserName.charAt(0).toUpperCase()"></span>
+                            <span class="flex-1 text-left text-sm font-medium text-gray-700" x-text="drawerUserName"></span>
                             <svg class="w-4 h-4 text-gray-400 transition-transform" :class="expanded && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
@@ -226,19 +253,21 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                         <div x-show="expanded" x-collapse class="mt-1 ml-3 space-y-1">
                             <a href="<?php echo esc_url(home_url('/my-dashboard/')); ?>" class="block px-3 py-2 text-sm text-gray-600 hover:text-navy-700 rounded-lg hover:bg-gray-50">Dashboard</a>
                             <a href="<?php echo esc_url(home_url('/my-dashboard/#favorites')); ?>" class="block px-3 py-2 text-sm text-gray-600 hover:text-navy-700 rounded-lg hover:bg-gray-50">Favorites</a>
-                            <a href="<?php echo esc_url(wp_logout_url(home_url('/'))); ?>" class="block px-3 py-2 text-sm text-gray-600 hover:text-navy-700 rounded-lg hover:bg-gray-50">Log Out</a>
+                            <button @click="localStorage.removeItem('bmn_token'); localStorage.removeItem('bmn_user'); window.location.href = '<?php echo esc_url(home_url('/')); ?>'"
+                                    class="block w-full text-left px-3 py-2 text-sm text-gray-600 hover:text-navy-700 rounded-lg hover:bg-gray-50">Log Out</button>
                         </div>
                     </div>
-                <?php else : ?>
-                    <div class="flex gap-2">
-                        <a href="<?php echo esc_url(home_url('/login/')); ?>" class="flex-1 text-center px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                            Log In
-                        </a>
-                        <a href="<?php echo esc_url(home_url('/signup/')); ?>" class="flex-1 text-center btn-primary text-sm !py-2.5">
-                            Sign Up
-                        </a>
-                    </div>
-                <?php endif; ?>
+                </template>
+
+                <!-- Logged-out state -->
+                <div x-show="!drawerLoggedIn" class="flex gap-2">
+                    <a href="<?php echo esc_url(home_url('/login/')); ?>" class="flex-1 text-center px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        Log In
+                    </a>
+                    <a href="<?php echo esc_url(home_url('/signup/')); ?>" class="flex-1 text-center btn-primary text-sm !py-2.5">
+                        Sign Up
+                    </a>
+                </div>
             </div>
         </aside>
     </div>

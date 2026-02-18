@@ -129,10 +129,18 @@ export function authFormComponent(
           return;
         }
 
-        // Store token and redirect
+        // Store token and user info, then redirect
         const token = data.data?.access_token || data.data?.token || data.token;
         if (token) {
           localStorage.setItem('bmn_token', token);
+        }
+        const user = data.data?.user;
+        if (user) {
+          localStorage.setItem('bmn_user', JSON.stringify({
+            name: user.name || user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+            email: user.email || '',
+            avatar_url: user.avatar_url || '',
+          }));
         }
 
         window.location.href = bmnTheme.dashboardUrl;

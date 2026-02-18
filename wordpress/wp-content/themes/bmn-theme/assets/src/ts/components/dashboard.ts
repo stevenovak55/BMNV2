@@ -278,6 +278,7 @@ export function dashboardAppComponent(): DashboardData {
         }).catch(() => {});
       }
       localStorage.removeItem('bmn_token');
+      localStorage.removeItem('bmn_user');
       window.location.href = bmnTheme.homeUrl;
     },
 
@@ -288,6 +289,7 @@ export function dashboardAppComponent(): DashboardData {
           headers: this.authHeaders(),
         });
         localStorage.removeItem('bmn_token');
+        localStorage.removeItem('bmn_user');
         window.location.href = bmnTheme.homeUrl;
       } catch {
         // Silently fail
