@@ -194,6 +194,41 @@ function bmn_property_template_override($template) {
 add_filter('template_include', 'bmn_property_template_override', 100);
 
 /**
+ * Handle property contact form submissions (AJAX)
+ */
+function bmn_handle_contact_form() {
+    $name     = sanitize_text_field($_POST['name'] ?? '');
+    $email    = sanitize_email($_POST['email'] ?? '');
+    $phone    = sanitize_text_field($_POST['phone'] ?? '');
+    $message  = sanitize_textarea_field($_POST['message'] ?? '');
+    $address  = sanitize_text_field($_POST['property_address'] ?? '');
+    $to_email = sanitize_email($_POST['agent_email'] ?? '');
+
+    if (empty($name) || empty($email) || empty($message)) {
+        wp_send_json_error('Missing required fields.', 400);
+    }
+
+    if (empty($to_email)) {
+        $to_email = get_theme_mod('bne_agent_email', 'mail@steve-novak.com');
+    }
+
+    $subject = 'Property Inquiry: ' . ($address ?: 'General');
+    $body    = "Name: {$name}\nEmail: {$email}\n";
+    if ($phone) {
+        $body .= "Phone: {$phone}\n";
+    }
+    $body .= "\nProperty: {$address}\n\nMessage:\n{$message}";
+
+    $headers = array('Reply-To: ' . $name . ' <' . $email . '>');
+
+    wp_mail($to_email, $subject, $body, $headers);
+
+    wp_send_json_success('Message sent.');
+}
+add_action('wp_ajax_bmn_contact_form', 'bmn_handle_contact_form');
+add_action('wp_ajax_nopriv_bmn_contact_form', 'bmn_handle_contact_form');
+
+/**
  * Localize additional page data for search and property pages
  */
 function bmn_localize_page_data() {

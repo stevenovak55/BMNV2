@@ -35,6 +35,11 @@ if (empty($agent_name)) {
 if (empty($agent_phone) && !empty($property['office']['phone'])) {
     $agent_phone = $property['office']['phone'];
 }
+
+// Fallback email to theme default when agent exists but has no email in MLS
+if (empty($agent_email)) {
+    $agent_email = get_theme_mod('bne_agent_email', 'mail@steve-novak.com');
+}
 ?>
 
 <!-- Agent Card -->
@@ -96,7 +101,7 @@ if (empty($agent_phone) && !empty($property['office']['phone'])) {
               @htmx:after-request.camel="if(event.detail.successful) submitted = true; sending = false"
               class="space-y-3">
 
-            <input type="hidden" name="action" value="mld_contact_form">
+            <input type="hidden" name="action" value="bmn_contact_form">
             <input type="hidden" name="property_address" value="<?php echo esc_attr($address); ?>">
             <input type="hidden" name="agent_email" value="<?php echo esc_attr($agent_email); ?>">
 

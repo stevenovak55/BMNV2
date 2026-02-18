@@ -74,17 +74,20 @@ $sqft         = $property['sqft'] ?? '';
 $lot_size     = $property['lot_size'] ?? '';
 $year_built   = $property['year_built'] ?? '';
 $description  = $property['public_remarks'] ?? '';
-$listing_id   = $property['listing_id'] ?? $mls_number;
-$lat          = $property['latitude'] ?? '';
-$lng          = $property['longitude'] ?? '';
+$listing_id    = $property['listing_id'] ?? $mls_number;
+$property_type = $property['property_sub_type'] ?? $property['property_type'] ?? '';
+$is_rental     = stripos($property['property_type'] ?? '', 'lease') !== false;
+$lat           = $property['latitude'] ?? '';
+$lng           = $property['longitude'] ?? '';
 
-// Set page title
+// Set page title (avoid duplicating city/state if already in address)
 add_filter('pre_get_document_title', function () use ($address, $city, $state) {
     $title = $address;
-    if ($city) {
+    // Only append city/state if not already present in the address string
+    if ($city && stripos($address, $city) === false) {
         $title .= ", {$city}";
     }
-    if ($state) {
+    if ($state && stripos($address, $state) === false) {
         $title .= ", {$state}";
     }
     return $title . ' | ' . get_bloginfo('name');
@@ -123,13 +126,30 @@ get_header();
                         <div class="text-right flex-shrink-0">
                             <p class="text-2xl lg:text-3xl font-bold text-navy-700">
                                 <?php echo esc_html(bmn_format_price($price)); ?>
+                                <?php if ($is_rental) : ?>
+                                    <span class="text-base font-normal text-gray-400">/mo</span>
+                                <?php endif; ?>
                             </p>
-                            <?php if ($status !== 'Active') : ?>
-                                <span class="inline-block mt-1 px-2.5 py-0.5 text-xs font-semibold rounded-full
-                                    <?php echo $status === 'Closed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'; ?>">
-                                    <?php echo esc_html($status); ?>
-                                </span>
-                            <?php endif; ?>
+                            <div class="flex items-center justify-end gap-1.5 mt-1">
+                                <?php if ($is_rental) : ?>
+                                    <span class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-700">
+                                        For Rent
+                                    </span>
+                                <?php elseif ($status === 'Closed') : ?>
+                                    <span class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                                        Sold
+                                    </span>
+                                <?php elseif ($status === 'Pending') : ?>
+                                    <span class="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
+                                        Pending
+                                    </span>
+                                <?php endif; ?>
+                                <?php if ($property_type) : ?>
+                                    <span class="inline-block px-2.5 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                        <?php echo esc_html($property_type); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
 

@@ -87,6 +87,57 @@ function bmn_get_neighborhood_analytics(): array {
 }
 
 /**
+ * Primary nav fallback when no WP menu is assigned
+ */
+function bmn_primary_nav_fallback(): void {
+    $class = 'px-3 py-2 text-sm font-medium text-gray-700 hover:text-navy-700 hover:bg-navy-50 rounded-lg transition-colors';
+    $items = array(
+        'Search'  => bmn_get_search_url(),
+        'About'   => home_url('/about/'),
+        'Contact' => bmn_get_contact_url(),
+    );
+    echo '<ul class="flex items-center gap-1">';
+    foreach ($items as $label => $url) {
+        echo '<li><a href="' . esc_url($url) . '" class="' . $class . '">' . esc_html($label) . '</a></li>';
+    }
+    echo '</ul>';
+}
+
+/**
+ * Mobile nav fallback when no WP menu is assigned
+ */
+function bmn_mobile_nav_fallback(): void {
+    $class = 'block px-3 py-2.5 text-base font-medium text-gray-700 hover:text-navy-700 hover:bg-navy-50 rounded-lg transition-colors';
+    $items = array(
+        'Search'  => bmn_get_search_url(),
+        'About'   => home_url('/about/'),
+        'Contact' => bmn_get_contact_url(),
+    );
+    echo '<ul class="space-y-1">';
+    foreach ($items as $label => $url) {
+        echo '<li><a href="' . esc_url($url) . '" class="' . $class . '">' . esc_html($label) . '</a></li>';
+    }
+    echo '</ul>';
+}
+
+/**
+ * Footer nav fallback when no WP menu is assigned
+ */
+function bmn_footer_nav_fallback(): void {
+    $items = array(
+        'Search Properties' => bmn_get_search_url(),
+        'About Us'          => home_url('/about/'),
+        'Contact'           => bmn_get_contact_url(),
+        'Privacy Policy'    => home_url('/privacy-policy/'),
+    );
+    echo '<ul class="space-y-2">';
+    foreach ($items as $label => $url) {
+        echo '<li><a href="' . esc_url($url) . '" class="text-sm text-gray-400 hover:text-white transition-colors">' . esc_html($label) . '</a></li>';
+    }
+    echo '</ul>';
+}
+
+/**
  * Build property detail URL using listing_id (MLS number, NOT listing_key)
  *
  * @param string $listing_id The MLS listing number

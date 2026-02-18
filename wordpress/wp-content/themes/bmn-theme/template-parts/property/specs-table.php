@@ -65,7 +65,7 @@ if (!$has_any) {
         <?php foreach ($groups as $group_name => $specs) :
             // Filter out empty values
             $visible_specs = array_filter($specs, function ($v) {
-                return $v !== null && $v !== '' && $v !== 'N' && $v !== '0';
+                return $v !== null && $v !== '' && $v !== 'N' && $v !== '0' && $v !== 0;
             });
 
             if (empty($visible_specs)) {

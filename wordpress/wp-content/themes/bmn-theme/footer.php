@@ -98,7 +98,7 @@ $cities = bmn_get_cities();
                         'theme_location' => 'footer',
                         'menu_class'     => 'space-y-2',
                         'container'      => false,
-                        'fallback_cb'    => false,
+                        'fallback_cb'    => 'bmn_footer_nav_fallback',
                         'depth'          => 1,
                         'link_before'    => '<span class="text-sm text-gray-400 hover:text-white transition-colors">',
                         'link_after'     => '</span>',
@@ -109,18 +109,31 @@ $cities = bmn_get_cities();
                 <!-- Column 3: Search by City -->
                 <div>
                     <h3 class="text-white font-semibold text-lg mb-4">Search by City</h3>
-                    <?php if (!empty($cities)) : ?>
-                        <ul class="space-y-2">
-                            <?php foreach (array_slice($cities, 0, 8) as $city) : ?>
-                                <li>
-                                    <a href="<?php echo esc_url($city['url'] ?? bmn_get_search_url(array('city' => $city['name'] ?? ''))); ?>"
-                                       class="text-sm text-gray-400 hover:text-white transition-colors">
-                                        <?php echo esc_html($city['name'] ?? ''); ?>
-                                    </a>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
+                    <?php
+                    $footer_cities = !empty($cities) ? $cities : array(
+                        array('name' => 'Boston'),
+                        array('name' => 'Cambridge'),
+                        array('name' => 'Somerville'),
+                        array('name' => 'Brookline'),
+                        array('name' => 'Newton'),
+                        array('name' => 'Arlington'),
+                        array('name' => 'Watertown'),
+                        array('name' => 'Waltham'),
+                    );
+                    ?>
+                    <ul class="space-y-2">
+                        <?php foreach ($footer_cities as $city) :
+                            $city_name = is_array($city) ? ($city['name'] ?? '') : $city;
+                            $city_url = is_array($city) ? ($city['url'] ?? bmn_get_search_url(array('city' => $city_name))) : bmn_get_search_url(array('city' => $city));
+                        ?>
+                            <li>
+                                <a href="<?php echo esc_url($city_url); ?>"
+                                   class="text-sm text-gray-400 hover:text-white transition-colors">
+                                    <?php echo esc_html($city_name); ?>
+                                </a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
 
                 <!-- Column 4: Newsletter -->

@@ -57,7 +57,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                         'theme_location' => 'primary',
                         'menu_class'     => 'flex items-center gap-1',
                         'container'      => false,
-                        'fallback_cb'    => false,
+                        'fallback_cb'    => 'bmn_primary_nav_fallback',
                         'depth'          => 2,
                         'link_before'    => '<span class="px-3 py-2 text-sm font-medium text-gray-700 hover:text-navy-700 hover:bg-navy-50 rounded-lg transition-colors">',
                         'link_after'     => '</span>',
@@ -199,7 +199,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                     'theme_location' => 'primary',
                     'menu_class'     => 'space-y-1',
                     'container'      => false,
-                    'fallback_cb'    => false,
+                    'fallback_cb'    => 'bmn_mobile_nav_fallback',
                     'link_before'    => '<span class="block px-3 py-2.5 text-base font-medium text-gray-700 hover:text-navy-700 hover:bg-navy-50 rounded-lg transition-colors">',
                     'link_after'     => '</span>',
                 ));

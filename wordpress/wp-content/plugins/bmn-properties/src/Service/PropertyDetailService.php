@@ -40,9 +40,17 @@ class PropertyDetailService
     {
         $cacheKey = 'detail_' . $listingId;
 
-        return $this->cache->remember($cacheKey, self::CACHE_TTL, function () use ($listingId) {
+        $result = $this->cache->remember($cacheKey, self::CACHE_TTL, function () use ($listingId) {
             return $this->fetchDetail($listingId);
         }, self::CACHE_GROUP);
+
+        // Guard against corrupted cache entries (transient deserialization can return string).
+        if ($result !== null && !is_array($result)) {
+            $this->cache->forget($cacheKey, self::CACHE_GROUP);
+            return $this->fetchDetail($listingId);
+        }
+
+        return $result;
     }
 
     /**
