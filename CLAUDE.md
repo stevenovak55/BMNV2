@@ -3,10 +3,10 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 11f (Unified Search Experience) - COMPLETE
-**Status:** Session 23 — All 7 remaining QA items verified and passed. Phase 11f closed out.
-**What's done:** Phases A-E of the unified search plan, 7 QA bug fixes, filter param translation, dynamic property types, spatial polygon optimization, map pin Alpine proxy fix, 15 UX polish fixes, pin clustering (1000 pins), all QA items verified (view toggle, mobile responsive, HTMX partial rendering, homepage cards, autocomplete, save search, filter chips).
-**Previous Phase:** 11e (Map Search) - COMPLETE (Session 18)
+## Current Phase: Pre-Phase 12 (Database Validation) - COMPLETE
+**Status:** Session 24 — V1 vs V2 database comparison complete. GO V2 WITH FIXES. All 10 fixes applied.
+**What's done:** 6-phase DB comparison (12 benchmarks, completeness, index optimization, architecture), all 10 remediation fixes (MA compliance columns, pet columns, DataNormalizer mappings, archive indexes, SRID 4326 spatial fix, explicit column SELECT, V1-parity API fields, bmn_rooms table, dropped low-value indexes). 1,646 tests passing.
+**Previous Phase:** 11f (Unified Search Experience) - COMPLETE (Session 23)
 **Next Phase:** Phase 12 (iOS SwiftUI rebuild)
 
 ## Critical Rules (NEVER VIOLATE)
@@ -181,4 +181,4 @@ The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT 
 - **Teal-600** — All search UI (filter bar, buttons, badges, pins, pagination)
 - **Navy-700** — Site header/footer/CTAs (btn-primary stays navy)
 
-*Last updated: 2026-02-18 (Session 23 - Phase 11f QA complete, phase closed out)*
+*Last updated: 2026-02-18 (Session 24 - V1/V2 DB comparison complete, all 10 fixes applied)*
