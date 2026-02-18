@@ -20,13 +20,13 @@
 | 11c | Remaining Theme Pages | Complete | 2026-02-17 | 2026-02-17 | - | - | About, Contact, Sign Up, Login, Dashboard. JWT auth, 14 new files |
 | 11d | QA + Performance | Complete | 2026-02-17 | 2026-02-17 | - | - | Visual QA, auth flow E2E, 3 bug fixes, API benchmarking (13-77ms) |
 | 11e | Map Search | Complete | 2026-02-17 | 2026-02-17 | - | - | Google Maps split-screen, custom OverlayView price pins, bounding box queries, v1-style layout |
-| 11f | Map Search UX Polish | In Progress | 2026-02-18 | - | - | - | 15 UX fixes, grid-based pin clustering, 1000 pin capacity |
+| 11f | Map Search UX Polish | Complete | 2026-02-18 | 2026-02-18 | - | - | 15 UX fixes, grid-based pin clustering, 1000 pin capacity, all QA passed |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 11f - Map Search UX Polish + Clustering - IN PROGRESS
+## Previous Phase: 11f - Map Search UX Polish + Clustering - COMPLETE
 
-**Status:** Session 22 — 15 interaction/UX fixes across 3 tiers + grid-based pin clustering. Browser-verified.
+**Status:** Session 23 — All 7 remaining QA items verified and passed. Phase closed out.
 
 ### What Was Done
 1. **Pin click stability** — `_suppressIdle` flag in `onPinClick()` and `centerOnProperty()` prevents idle → refetch → info window disappearance
@@ -50,13 +50,17 @@
 - `page-map-search.php` (modified) — Error state, card ring, mobile toggle
 - `assets/src/scss/main.scss` (modified) — .bmn-pin-active, .bmn-cluster styles
 
-### Remaining QA
-- View toggle (List ↔ Map) filter preservation
-- Mobile responsive
-- HTMX partial rendering on list view
-- Homepage cards
-- Autocomplete dispatch mode
-- Save Search modal
+### QA Completed (Session 23)
+- [x] View toggle (List ↔ Map) filter preservation — `getMapSearchUrl()`/`getListSearchUrl()` serialize all filters to URL params
+- [x] Mobile responsive — filter bar wraps, bottom pill toggle appears on map search
+- [x] HTMX partial rendering on list view — `HX-Request` header returns grid-only partial
+- [x] Homepage cards — images, teal price badges, status/DOM labels (code correct, test data all Active dom=49)
+- [x] Autocomplete dispatch mode — works on both pages, cities/neighborhoods/addresses/streets/MLS
+- [x] Save Search modal — present on both pages, posts to API with JWT
+- [x] Filter chips — render for all non-default filters, X removes, "Clear All" resets
+
+### Minor Known Issues (not blocking)
+- Homepage favorite hearts use Alpine bindings outside x-data scope — hearts render as static (no errors due to optional chaining)
 
 ---
 
