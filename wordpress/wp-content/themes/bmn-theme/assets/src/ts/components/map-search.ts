@@ -75,6 +75,18 @@ let PriceMarkerOverlayClass: {
   };
 } | null = null;
 
+let ClusterMarkerOverlayClass: {
+  new (
+    position: google.maps.LatLng,
+    count: number,
+    map: google.maps.Map,
+    onClick: () => void,
+  ): google.maps.OverlayView & {
+    div: HTMLDivElement | null;
+    remove(): void;
+  };
+} | null = null;
+
 function ensureOverlayClass() {
   if (PriceMarkerOverlayClass) return;
 
@@ -110,6 +122,16 @@ function ensureOverlayClass() {
         this.clickHandler();
       });
 
+      // Bidirectional hover: highlight sidebar card when hovering map pin
+      this.div.addEventListener('mouseenter', () => {
+        document.querySelector(`[data-listing-id="${this.listingId}"]`)
+          ?.classList.add('bg-teal-50');
+      });
+      this.div.addEventListener('mouseleave', () => {
+        document.querySelector(`[data-listing-id="${this.listingId}"]`)
+          ?.classList.remove('bg-teal-50');
+      });
+
       const panes = this.getPanes();
       if (panes) panes.overlayMouseTarget.appendChild(this.div);
     }
@@ -140,6 +162,69 @@ function ensureOverlayClass() {
   }
 
   PriceMarkerOverlayClass = PriceMarkerOverlay as any;
+
+  class ClusterMarkerOverlay extends google.maps.OverlayView {
+    position: google.maps.LatLng;
+    count: number;
+    div: HTMLDivElement | null = null;
+    private clickHandler: () => void;
+
+    constructor(
+      position: google.maps.LatLng,
+      count: number,
+      map: google.maps.Map,
+      onClick: () => void,
+    ) {
+      super();
+      this.position = position;
+      this.count = count;
+      this.clickHandler = onClick;
+      this.setMap(map);
+    }
+
+    onAdd() {
+      this.div = document.createElement('div');
+      // Size class based on count
+      const sizeClass = this.count >= 50 ? 'bmn-cluster-large'
+        : this.count >= 10 ? 'bmn-cluster-medium'
+        : '';
+      this.div.className = `bmn-cluster ${sizeClass}`.trim();
+      this.div.textContent = String(this.count);
+      this.div.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.clickHandler();
+      });
+
+      const panes = this.getPanes();
+      if (panes) panes.overlayMouseTarget.appendChild(this.div);
+    }
+
+    draw() {
+      if (!this.div) return;
+      const projection = this.getProjection();
+      if (!projection) return;
+      const pixel = projection.fromLatLngToDivPixel(this.position);
+      if (pixel) {
+        this.div.style.position = 'absolute';
+        this.div.style.left = pixel.x + 'px';
+        this.div.style.top = pixel.y + 'px';
+        this.div.style.transform = 'translate(-50%, -50%)';
+      }
+    }
+
+    onRemove() {
+      if (this.div && this.div.parentNode) {
+        this.div.parentNode.removeChild(this.div);
+      }
+      this.div = null;
+    }
+
+    remove() {
+      this.setMap(null);
+    }
+  }
+
+  ClusterMarkerOverlayClass = ClusterMarkerOverlay as any;
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,8 +237,73 @@ type OverlayInstance = google.maps.OverlayView & {
 };
 
 const overlayMap = new Map<string, OverlayInstance>();
+const clusterOverlays: OverlayInstance[] = [];
 let activeInfoWindow: google.maps.InfoWindow | null = null;
-const MAX_PINS = 200;
+const MAX_PINS = 1000;
+
+/** Grid cell size in world pixels for clustering. Pins within the same cell
+ *  are grouped into a cluster marker. ~100px works well across zoom levels. */
+const CLUSTER_GRID_PX = 100;
+
+interface ClusterGroup {
+  listings: PropertyListing[];
+  center: google.maps.LatLng;
+}
+
+/** Grid-based spatial clustering using the map's Mercator projection.
+ *  Divides world-pixel space into cells of CLUSTER_GRID_PX² and groups
+ *  listings that fall in the same cell. */
+function computeClusters(
+  listings: PropertyListing[],
+  map: google.maps.Map,
+): ClusterGroup[] {
+  const projection = map.getProjection();
+  const zoom = map.getZoom();
+
+  // Fallback: no clustering if projection unavailable
+  if (!projection || zoom === undefined) {
+    return listings
+      .filter(l => l.latitude && l.longitude)
+      .map(l => ({
+        listings: [l],
+        center: new google.maps.LatLng(Number(l.latitude), Number(l.longitude)),
+      }));
+  }
+
+  const scale = Math.pow(2, zoom);
+  const cells = new Map<string, PropertyListing[]>();
+
+  for (const l of listings) {
+    if (!l.latitude || !l.longitude) continue;
+    const point = projection.fromLatLngToPoint(
+      new google.maps.LatLng(Number(l.latitude), Number(l.longitude)),
+    );
+    if (!point) continue;
+
+    // World-pixel → grid cell
+    const cx = Math.floor((point.x * scale) / CLUSTER_GRID_PX);
+    const cy = Math.floor((point.y * scale) / CLUSTER_GRID_PX);
+    const key = `${cx}_${cy}`;
+
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key)!.push(l);
+  }
+
+  const groups: ClusterGroup[] = [];
+  for (const group of cells.values()) {
+    let latSum = 0, lngSum = 0;
+    for (const l of group) {
+      latSum += Number(l.latitude);
+      lngSum += Number(l.longitude);
+    }
+    groups.push({
+      listings: group,
+      center: new google.maps.LatLng(latSum / group.length, lngSum / group.length),
+    });
+  }
+
+  return groups;
+}
 
 /**
  * Raw (non-proxied) Google Maps Map instance.
@@ -211,6 +361,7 @@ export function mapSearchComponent() {
     total: 0,
     loading: false,
     initialLoad: true,
+    fetchError: false,
 
     // Map
     map: null as google.maps.Map | null,
@@ -242,6 +393,20 @@ export function mapSearchComponent() {
 
       // Hydrate from URL params
       this._hydrateFromUrl();
+
+      // Back/forward navigation: re-hydrate filters and re-fetch
+      window.addEventListener('popstate', () => {
+        this._hydrateFromUrl();
+        this.submitFilters();
+      });
+
+      // Clean up debounce timer on page unload
+      window.addEventListener('beforeunload', () => {
+        if (this._debounceTimer) {
+          clearTimeout(this._debounceTimer);
+          this._debounceTimer = null;
+        }
+      });
 
       this.$nextTick(() => {
         this.initMap();
@@ -400,7 +565,11 @@ export function mapSearchComponent() {
         document.body.style.userSelect = '';
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
-        if (_rawMap) google.maps.event.trigger(_rawMap, 'resize');
+        if (_rawMap) {
+          // Suppress idle — resize trigger shouldn't cause a refetch
+          _suppressIdle = true;
+          google.maps.event.trigger(_rawMap, 'resize');
+        }
       };
 
       handle.addEventListener('mousedown', (e: MouseEvent) => {
@@ -415,35 +584,45 @@ export function mapSearchComponent() {
       });
     },
 
-    async fetchProperties() {
+    async fetchProperties(useBounds = true) {
       if (!_rawMap) return;
 
       const fetchId = ++this._fetchId;
       this.loading = true;
+      this.fetchError = false;
 
-      const bounds = _rawMap.getBounds();
-      if (!bounds) {
-        this.loading = false;
-        return;
+      if (useBounds) {
+        const bounds = _rawMap.getBounds();
+        if (!bounds) {
+          this.loading = false;
+          return;
+        }
       }
 
-      const sw = bounds.getSouthWest();
-      const ne = bounds.getNorthEast();
       const filters = this._getFilters();
       const params = filtersToApiParams(filters);
 
-      params.set('bounds', [
-        sw.lat().toFixed(6),
-        sw.lng().toFixed(6),
-        ne.lat().toFixed(6),
-        ne.lng().toFixed(6),
-      ].join(','));
-      params.set('per_page', '250');
+      if (useBounds) {
+        const bounds = _rawMap.getBounds()!;
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        params.set('bounds', [
+          sw.lat().toFixed(6),
+          sw.lng().toFixed(6),
+          ne.lat().toFixed(6),
+          ne.lng().toFixed(6),
+        ].join(','));
+      }
+      params.set('per_page', '1000');
       // Remove paged for map (no pagination)
       params.delete('paged');
 
       const url = bmnPageData.propertiesApiUrl + '?' + params.toString();
-      console.debug('[MapSearch] fetch #%d, beds=%s, city=%s, url=%s', fetchId, filters.beds, filters.city, url);
+      console.debug('[MapSearch] fetch #%d, useBounds=%s, beds=%s, city=%s, url=%s', fetchId, useBounds, filters.beds, filters.city, url);
+
+      // Save sidebar scroll position before re-render
+      const scrollContainer = document.querySelector('#results-sidebar .overflow-y-auto') as HTMLElement | null;
+      const scrollTop = scrollContainer?.scrollTop ?? 0;
 
       try {
         const resp = await fetch(url);
@@ -463,20 +642,41 @@ export function mapSearchComponent() {
           this.total = 0;
         }
       } catch (err) {
-        console.error('Map search fetch error:', err);
+        console.error('[MapSearch] fetch error:', err);
         if (fetchId !== this._fetchId) return;
-        this.listings = [];
-        this.total = 0;
+        this.fetchError = true;
+        // Don't wipe listings — keep showing previous results on error
       }
 
       this.loading = false;
       this.initialLoad = false;
       console.debug('[MapSearch] fetch #%d complete: %d listings, updating %d markers', fetchId, this.listings.length, Math.min(this.listings.length, MAX_PINS));
       this.updateMarkers();
+
+      // Restore sidebar scroll position after Alpine re-renders
+      this.$nextTick(() => {
+        if (scrollContainer) scrollContainer.scrollTop = scrollTop;
+      });
+
+      // If non-bounds fetch (filter submit), reframe map to show all results
+      if (!useBounds && this.listings.length > 0) {
+        const resultBounds = new google.maps.LatLngBounds();
+        let hasCoords = false;
+        this.listings.forEach((l: PropertyListing) => {
+          if (l.latitude && l.longitude) {
+            resultBounds.extend({ lat: Number(l.latitude), lng: Number(l.longitude) });
+            hasCoords = true;
+          }
+        });
+        if (hasCoords) {
+          _suppressIdle = true;
+          _rawMap.fitBounds(resultBounds, { top: 50, right: 50, bottom: 50, left: 50 });
+        }
+      }
     },
 
     updateMarkers() {
-      if (!_rawMap || !PriceMarkerOverlayClass) {
+      if (!_rawMap || !PriceMarkerOverlayClass || !ClusterMarkerOverlayClass) {
         console.debug('[MapSearch] updateMarkers skipped: map=%o, overlay=%o', !!_rawMap, !!PriceMarkerOverlayClass);
         return;
       }
@@ -484,48 +684,86 @@ export function mapSearchComponent() {
       if (activeInfoWindow) {
         activeInfoWindow.close();
         activeInfoWindow = null;
+        this.activeMarkerId = '';
       }
 
-      // 1. Remove tracked overlays via Google Maps API
+      // 1. Remove tracked pin overlays
       const prevTracked = overlayMap.size;
       overlayMap.forEach((overlay) => {
         try { overlay.remove(); } catch (_) { /* ignore */ }
       });
       overlayMap.clear();
 
-      // 2. Nuclear cleanup: remove ALL .bmn-pin elements from the DOM
-      //    This catches any orphaned pins not tracked in overlayMap
-      const orphanPins = document.querySelectorAll('.bmn-pin');
-      orphanPins.forEach((el) => el.remove());
+      // 2. Remove tracked cluster overlays
+      const prevClusters = clusterOverlays.length;
+      clusterOverlays.forEach((overlay) => {
+        try { overlay.remove(); } catch (_) { /* ignore */ }
+      });
+      clusterOverlays.length = 0;
 
+      // 3. Nuclear cleanup: remove ALL pin/cluster elements from the DOM
+      document.querySelectorAll('.bmn-pin, .bmn-cluster').forEach((el) => el.remove());
+
+      // 4. Cluster listings and render
       const toRender = this.listings.slice(0, MAX_PINS);
-      let rendered = 0;
+      const clusters = computeClusters(toRender, _rawMap);
+      let pinCount = 0;
+      let clusterCount = 0;
 
-      toRender.forEach((listing: PropertyListing) => {
-        if (!listing.latitude || !listing.longitude) return;
+      clusters.forEach((cluster) => {
+        if (cluster.listings.length === 1) {
+          // Single listing — render as price pin
+          const listing = cluster.listings[0];
+          const priceLabel = formatPrice(listing.price);
+          const position = new google.maps.LatLng(
+            Number(listing.latitude),
+            Number(listing.longitude),
+          );
 
-        const priceLabel = formatPrice(listing.price);
-        const position = new google.maps.LatLng(
-          Number(listing.latitude),
-          Number(listing.longitude),
-        );
+          const overlay = new PriceMarkerOverlayClass!(
+            position,
+            priceLabel,
+            listing.listing_id,
+            _rawMap!,
+            () => this.onPinClick(listing, priceLabel),
+          );
 
-        const overlay = new PriceMarkerOverlayClass!(
-          position,
-          priceLabel,
-          listing.listing_id,
-          _rawMap!,
-          () => this.onPinClick(listing, priceLabel),
-        );
+          overlayMap.set(listing.listing_id, overlay as OverlayInstance);
+          pinCount++;
+        } else {
+          // Multiple listings — render as cluster marker
+          const overlay = new ClusterMarkerOverlayClass!(
+            cluster.center,
+            cluster.listings.length,
+            _rawMap!,
+            () => this.onClusterClick(cluster.listings),
+          );
 
-        overlayMap.set(listing.listing_id, overlay as OverlayInstance);
-        rendered++;
+          clusterOverlays.push(overlay as OverlayInstance);
+          clusterCount++;
+        }
       });
 
-      console.debug('[MapSearch] updateMarkers: tracked=%d, orphans=%d, added=%d pins', prevTracked, orphanPins.length, rendered);
+      console.debug('[MapSearch] updateMarkers: prev=%d pins + %d clusters, now=%d pins + %d clusters',
+        prevTracked, prevClusters, pinCount, clusterCount);
+    },
+
+    /** Zoom into a cluster to reveal individual pins */
+    onClusterClick(listings: PropertyListing[]) {
+      if (!_rawMap) return;
+      const bounds = new google.maps.LatLngBounds();
+      listings.forEach((l) => {
+        if (l.latitude && l.longitude) {
+          bounds.extend({ lat: Number(l.latitude), lng: Number(l.longitude) });
+        }
+      });
+      // Let idle fire naturally to re-fetch/re-cluster at the new zoom
+      _rawMap.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
     },
 
     onPinClick(listing: PropertyListing, priceLabel: string) {
+      // Suppress idle — opening an info window can cause a tiny map pan
+      _suppressIdle = true;
       this.activeMarkerId = listing.listing_id;
       if (activeInfoWindow) activeInfoWindow.close();
 
@@ -565,13 +803,26 @@ export function mapSearchComponent() {
         </a>
       `;
 
+      // Unhighlight previously active pin, highlight clicked pin
+      overlayMap.forEach((o) => {
+        if (o.div) o.div.classList.remove('bmn-pin-active');
+      });
+      const activeOverlay = overlayMap.get(listing.listing_id);
+      if (activeOverlay?.div) activeOverlay.div.classList.add('bmn-pin-active');
+
       activeInfoWindow = new google.maps.InfoWindow({
         content: infoContent,
         maxWidth: 320,
         position: new google.maps.LatLng(Number(listing.latitude), Number(listing.longitude)),
       });
       activeInfoWindow.open(_rawMap!);
-      activeInfoWindow.addListener('closeclick', () => { this.activeMarkerId = ''; });
+      activeInfoWindow.addListener('closeclick', () => {
+        this.activeMarkerId = '';
+        // Remove active pin highlight when info window is closed
+        overlayMap.forEach((o) => {
+          if (o.div) o.div.classList.remove('bmn-pin-active');
+        });
+      });
 
       const card = document.querySelector(`[data-listing-id="${listing.listing_id}"]`);
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -591,7 +842,7 @@ export function mapSearchComponent() {
       const overlay = overlayMap.get(listingId) as OverlayInstance | undefined;
       if (overlay?.div) {
         overlay.div.classList.remove('bmn-pin-highlighted');
-        overlay.div.style.zIndex = '';
+        overlay.div.style.zIndex = '1';
       }
     },
 
@@ -600,6 +851,8 @@ export function mapSearchComponent() {
       if (overlay && _rawMap) {
         const listing = this.listings.find((l: PropertyListing) => l.listing_id === listingId);
         if (listing) {
+          // Suppress idle — panTo triggers idle which would refetch and close the info window
+          _suppressIdle = true;
           _rawMap.panTo(new google.maps.LatLng(Number(listing.latitude), Number(listing.longitude)));
           this.onPinClick(listing, formatPrice(listing.price));
         }
@@ -617,7 +870,12 @@ export function mapSearchComponent() {
       _suppressIdle = true;
       this.mobileFiltersOpen = false;
       this.moreFiltersOpen = false;
-      this.fetchProperties();
+      // Non-bounds fetch: get all matching results, then reframe map
+      this.fetchProperties(false);
+      // Push filter state to URL for shareability and back/forward navigation
+      const qs = filtersToParams(this._getFilters()).toString();
+      const url = bmnTheme.mapSearchUrl + (qs ? '?' + qs : '');
+      history.pushState(null, '', url);
     },
 
     resetFilters() {

@@ -20,10 +20,43 @@
 | 11c | Remaining Theme Pages | Complete | 2026-02-17 | 2026-02-17 | - | - | About, Contact, Sign Up, Login, Dashboard. JWT auth, 14 new files |
 | 11d | QA + Performance | Complete | 2026-02-17 | 2026-02-17 | - | - | Visual QA, auth flow E2E, 3 bug fixes, API benchmarking (13-77ms) |
 | 11e | Map Search | Complete | 2026-02-17 | 2026-02-17 | - | - | Google Maps split-screen, custom OverlayView price pins, bounding box queries, v1-style layout |
+| 11f | Map Search UX Polish | In Progress | 2026-02-18 | - | - | - | 15 UX fixes, grid-based pin clustering, 1000 pin capacity |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 12 - iOS App (SwiftUI Rebuild) - NOT STARTED
+## Current Phase: 11f - Map Search UX Polish + Clustering - IN PROGRESS
+
+**Status:** Session 22 — 15 interaction/UX fixes across 3 tiers + grid-based pin clustering. Browser-verified.
+
+### What Was Done
+1. **Pin click stability** — `_suppressIdle` flag in `onPinClick()` and `centerOnProperty()` prevents idle → refetch → info window disappearance
+2. **Filter reframe** — `fetchProperties(useBounds)` dual-fetch strategy; `submitFilters()` fetches without bounds, then `fitBounds()` to reframe map
+3. **history.pushState** — Filter changes push URL state; `popstate` listener re-hydrates on back/forward; shareable URLs
+4. **Error state UI** — Dedicated error template with warning icon + "Try Again" button
+5. **Bidirectional hover** — Map pin hover highlights sidebar card; sidebar card hover highlights pin
+6. **Active pin highlight** — Clicked pin stays red (`.bmn-pin-active`); clears on close/click-another
+7. **Grid-based pin clustering** — `computeClusters()` using Mercator projection; `ClusterMarkerOverlay` with 3 size tiers; click to zoom in
+8. **Capacity increase** — MAX_PINS 200→1000, per_page 250→1000
+9. **Sidebar scroll preservation** — Saves/restores scrollTop around Alpine re-renders
+10. **Card selection ring** — Upgraded to visible `ring-2 ring-teal-400 shadow-sm`
+11. **Resize handle idle suppression** — No refetch on panel resize
+12. **Mobile toggle z-index** — Hidden behind save search modal
+13. **Debounce cleanup** — `beforeunload` clears pending timer
+14. **Orphaned activeMarkerId** — Reset when updateMarkers() closes info window
+15. **Unhighlight z-index** — Consistent base layer `z-index: 1`
+
+### Files Created/Modified
+- `assets/src/ts/components/map-search.ts` (modified) — 15 UX fixes + ClusterMarkerOverlay + computeClusters
+- `page-map-search.php` (modified) — Error state, card ring, mobile toggle
+- `assets/src/scss/main.scss` (modified) — .bmn-pin-active, .bmn-cluster styles
+
+### Remaining QA
+- View toggle (List ↔ Map) filter preservation
+- Mobile responsive
+- HTMX partial rendering on list view
+- Homepage cards
+- Autocomplete dispatch mode
+- Save Search modal
 
 ---
 

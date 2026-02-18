@@ -84,8 +84,23 @@ get_header();
                     </div>
                 </template>
 
+                <!-- Error state -->
+                <template x-if="!initialLoad && fetchError && listings.length === 0">
+                    <div class="flex flex-col items-center justify-center py-16 text-center px-4">
+                        <svg class="w-14 h-14 text-red-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                        <h3 class="text-base font-semibold text-gray-700 mb-1">Something went wrong</h3>
+                        <p class="text-sm text-gray-500 max-w-xs">We couldn't load properties. Check your connection and try again.</p>
+                        <button @click="fetchProperties()"
+                                class="mt-3 px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors">
+                            Try Again
+                        </button>
+                    </div>
+                </template>
+
                 <!-- Empty state -->
-                <template x-if="!initialLoad && listings.length === 0">
+                <template x-if="!initialLoad && !fetchError && listings.length === 0">
                     <div class="flex flex-col items-center justify-center py-16 text-center px-4">
                         <svg class="w-14 h-14 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -105,7 +120,7 @@ get_header();
                         <a :href="'<?php echo esc_url(home_url('/property/')); ?>' + listing.listing_id + '/'"
                            :data-listing-id="listing.listing_id"
                            class="flex gap-3 p-3 hover:bg-white transition-colors cursor-pointer relative"
-                           :class="activeMarkerId === listing.listing_id ? 'bg-teal-50 ring-1 ring-teal-200' : ''"
+                           :class="activeMarkerId === listing.listing_id ? 'bg-teal-50 ring-2 ring-teal-400 shadow-sm' : ''"
                            @mouseenter="highlightMarker(listing.listing_id)"
                            @mouseleave="unhighlightMarker(listing.listing_id)"
                            @click.prevent="centerOnProperty(listing.listing_id)">
@@ -197,8 +212,8 @@ get_header();
         </div>
     </div>
 
-    <!-- Mobile View Toggle (fixed bottom pill) -->
-    <div class="lg:hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[9998]
+    <!-- Mobile View Toggle (fixed bottom pill, hidden when save search modal is open) -->
+    <div x-show="!saveSearchOpen" class="lg:hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[9998]
                 bg-white/90 backdrop-blur-xl border border-white/30
                 rounded-full shadow-lg flex p-1 gap-1">
         <button @click="mobileView = 'list'"

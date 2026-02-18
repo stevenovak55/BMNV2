@@ -165,6 +165,54 @@
   }
 }
 
+.bmn-pin-active {
+  background: linear-gradient(135deg, #e04f3a 0%, #c0392b 100%);
+  z-index: 9999 !important;
+  box-shadow: 0 4px 12px rgba(224, 79, 58, 0.4);
+
+  &::after {
+    border-top-color: #c0392b;
+  }
+}
+
+/* Cluster markers (circular count bubbles) */
+.bmn-cluster {
+  background: linear-gradient(135deg, #0891B2 0%, #0E7490 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: 3px solid rgba(255, 255, 255, 0.8);
+  line-height: 1;
+  z-index: 1;
+
+  &:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(8, 145, 178, 0.5);
+    z-index: 10000 !important;
+  }
+}
+
+.bmn-cluster-medium {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+}
+
+.bmn-cluster-large {
+  width: 56px;
+  height: 56px;
+  font-size: 16px;
+}
+
 /* Resize handle between map and sidebar */
 .bmn-resize-handle {
   width: 6px;
