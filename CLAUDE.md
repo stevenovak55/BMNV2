@@ -4,11 +4,11 @@
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
 ## Current Phase: 11f (Unified Search Experience) - IN PROGRESS
-**Status:** Session 20 — QA fixes, spatial optimization, dynamic property types. Session 19 core implementation + Session 20 QA fixes (7 bugs), filter param translation, dynamic property types from DB (23 types, transient-cached), spatial polygon optimization (ST_Contains replaces ray-casting SQL). Map pin filtering bug still unresolved (P0 for next session).
-**What's done:** Phases A-E of the unified search plan, 7 QA bug fixes, filter param name translation, dynamic property types, spatial polygon optimization.
-**What needs QA/polish:** P0: Map pins not filtering (sidebar updates but pins remain). Also: view toggle filter preservation, mobile responsive, HTMX partial rendering, homepage cards.
+**Status:** Session 21 — Fixed P0 map pin filtering bug (Alpine proxy wrapping Google Maps Map object). Session 19 core + Session 20 QA (7 bugs, filter param translation, dynamic property types, spatial polygon optimization) + Session 21 map pin fix.
+**What's done:** Phases A-E of the unified search plan, 7 QA bug fixes, filter param translation, dynamic property types, spatial polygon optimization, map pin Alpine proxy fix.
+**What needs QA/polish:** Browser-verify map pin fix. Then: view toggle filter preservation, mobile responsive, HTMX partial rendering, homepage cards.
 **Previous Phase:** 11e (Map Search) - COMPLETE (Session 18)
-**Next Phase:** Fix map pin bug, remaining QA, then Phase 12 (iOS SwiftUI rebuild)
+**Next Phase:** Browser-verify pin fix, remaining QA, then Phase 12 (iOS SwiftUI rebuild)
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -182,4 +182,4 @@ The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT 
 - **Teal-600** — All search UI (filter bar, buttons, badges, pins, pagination)
 - **Navy-700** — Site header/footer/CTAs (btn-primary stays navy)
 
-*Last updated: 2026-02-18 (Session 20 - Phase 11f QA + Spatial Optimization)*
+*Last updated: 2026-02-18 (Session 21 - Phase 11f map pin Alpine proxy fix)*

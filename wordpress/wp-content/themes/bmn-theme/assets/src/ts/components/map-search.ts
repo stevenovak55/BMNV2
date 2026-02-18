@@ -155,6 +155,22 @@ const overlayMap = new Map<string, OverlayInstance>();
 let activeInfoWindow: google.maps.InfoWindow | null = null;
 const MAX_PINS = 200;
 
+/**
+ * Raw (non-proxied) Google Maps Map instance.
+ * Alpine wraps this.map in a reactive Proxy, but Google Maps APIs
+ * (OverlayView.setMap, InfoWindow.open, event.trigger) use internal
+ * WeakMap lookups keyed by object identity — a Proxy !== the original.
+ * Passing the proxy causes getPanes()/getProjection() to return null,
+ * so overlays never render. We store the raw reference here for all
+ * Google Maps API calls.
+ */
+let _rawMap: google.maps.Map | null = null;
+
+/** When true, the idle listener skips its debounced fetch.
+ *  Set by submitFilters() to prevent an idle cascade from
+ *  overwriting filter-triggered results. */
+let _suppressIdle = false;
+
 /* ------------------------------------------------------------------ */
 /*  Alpine component                                                   */
 /* ------------------------------------------------------------------ */
@@ -327,7 +343,7 @@ export function mapSearchComponent() {
 
       ensureOverlayClass();
 
-      this.map = new google.maps.Map(container, {
+      const mapInstance = new google.maps.Map(container, {
         center: { lat: 42.36, lng: -71.06 },
         zoom: 13,
         gestureHandling: 'greedy',
@@ -343,7 +359,16 @@ export function mapSearchComponent() {
         },
       });
 
-      this.map.addListener('idle', () => {
+      // Store raw reference BEFORE Alpine proxies it
+      _rawMap = mapInstance;
+      this.map = mapInstance; // Alpine proxies this — used only for reactivity checks
+
+      mapInstance.addListener('idle', () => {
+        if (_suppressIdle) {
+          console.debug('[MapSearch] idle suppressed (filter fetch in progress)');
+          _suppressIdle = false;
+          return;
+        }
         if (this._debounceTimer) clearTimeout(this._debounceTimer);
         this._debounceTimer = setTimeout(() => {
           this.fetchProperties();
@@ -375,7 +400,7 @@ export function mapSearchComponent() {
         document.body.style.userSelect = '';
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
-        if (this.map) google.maps.event.trigger(this.map, 'resize');
+        if (_rawMap) google.maps.event.trigger(_rawMap, 'resize');
       };
 
       handle.addEventListener('mousedown', (e: MouseEvent) => {
@@ -391,12 +416,12 @@ export function mapSearchComponent() {
     },
 
     async fetchProperties() {
-      if (!this.map) return;
+      if (!_rawMap) return;
 
       const fetchId = ++this._fetchId;
       this.loading = true;
 
-      const bounds = this.map.getBounds();
+      const bounds = _rawMap.getBounds();
       if (!bounds) {
         this.loading = false;
         return;
@@ -451,8 +476,8 @@ export function mapSearchComponent() {
     },
 
     updateMarkers() {
-      if (!this.map || !PriceMarkerOverlayClass) {
-        console.debug('[MapSearch] updateMarkers skipped: map=%o, overlay=%o', !!this.map, !!PriceMarkerOverlayClass);
+      if (!_rawMap || !PriceMarkerOverlayClass) {
+        console.debug('[MapSearch] updateMarkers skipped: map=%o, overlay=%o', !!_rawMap, !!PriceMarkerOverlayClass);
         return;
       }
 
@@ -489,7 +514,7 @@ export function mapSearchComponent() {
           position,
           priceLabel,
           listing.listing_id,
-          this.map!,
+          _rawMap!,
           () => this.onPinClick(listing, priceLabel),
         );
 
@@ -545,7 +570,7 @@ export function mapSearchComponent() {
         maxWidth: 320,
         position: new google.maps.LatLng(Number(listing.latitude), Number(listing.longitude)),
       });
-      activeInfoWindow.open(this.map!);
+      activeInfoWindow.open(_rawMap!);
       activeInfoWindow.addListener('closeclick', () => { this.activeMarkerId = ''; });
 
       const card = document.querySelector(`[data-listing-id="${listing.listing_id}"]`);
@@ -572,10 +597,10 @@ export function mapSearchComponent() {
 
     centerOnProperty(listingId: string) {
       const overlay = overlayMap.get(listingId) as OverlayInstance | undefined;
-      if (overlay && this.map) {
+      if (overlay && _rawMap) {
         const listing = this.listings.find((l: PropertyListing) => l.listing_id === listingId);
         if (listing) {
-          this.map.panTo(new google.maps.LatLng(Number(listing.latitude), Number(listing.longitude)));
+          _rawMap.panTo(new google.maps.LatLng(Number(listing.latitude), Number(listing.longitude)));
           this.onPinClick(listing, formatPrice(listing.price));
         }
       }
@@ -587,6 +612,9 @@ export function mapSearchComponent() {
         clearTimeout(this._debounceTimer);
         this._debounceTimer = null;
       }
+      // Suppress the next idle event — overlay removal/addition can trigger idle,
+      // which would re-fetch and potentially cause a stale response race
+      _suppressIdle = true;
       this.mobileFiltersOpen = false;
       this.moreFiltersOpen = false;
       this.fetchProperties();
