@@ -4,11 +4,11 @@
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
 ## Current Phase: 11f (Unified Search Experience) - IN PROGRESS
-**Status:** Session 19 — Core implementation complete. Redfin-style horizontal filter bar replaces sidebar on list view and inline panel on map view. Shared `filter-engine.ts` module consumed by both Alpine components. Unified property cards with status badges, DOM labels, favorite hearts, teal accents. View toggle (list/map) preserves filters via URL params. 20 files changed (6 new, 13 modified, 1 deleted). Vite build passes. All pages return HTTP 200.
-**What's done:** Phases A-E of the unified search plan — shared TS foundation, list view conversion, map view conversion, SCSS/config updates, homepage card normalization.
-**What needs QA/polish:** Browser testing of all filter dropdowns, chips, favorites, save search modal, autocomplete dispatch mode on search pages, mobile responsive behavior, HTMX partial rendering still works.
+**Status:** Session 20 — QA fixes, spatial optimization, dynamic property types. Session 19 core implementation + Session 20 QA fixes (7 bugs), filter param translation, dynamic property types from DB (23 types, transient-cached), spatial polygon optimization (ST_Contains replaces ray-casting SQL). Map pin filtering bug still unresolved (P0 for next session).
+**What's done:** Phases A-E of the unified search plan, 7 QA bug fixes, filter param name translation, dynamic property types, spatial polygon optimization.
+**What needs QA/polish:** P0: Map pins not filtering (sidebar updates but pins remain). Also: view toggle filter preservation, mobile responsive, HTMX partial rendering, homepage cards.
 **Previous Phase:** 11e (Map Search) - COMPLETE (Session 18)
-**Next Phase:** QA + polish of unified search, then Phase 12 (iOS SwiftUI rebuild)
+**Next Phase:** Fix map pin bug, remaining QA, then Phase 12 (iOS SwiftUI rebuild)
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -182,4 +182,4 @@ The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT 
 - **Teal-600** — All search UI (filter bar, buttons, badges, pins, pagination)
 - **Navy-700** — Site header/footer/CTAs (btn-primary stays navy)
 
-*Last updated: 2026-02-17 (Session 19 - Phase 11f Unified Search Experience)*
+*Last updated: 2026-02-18 (Session 20 - Phase 11f QA + Spatial Optimization)*

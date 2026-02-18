@@ -1,96 +1,89 @@
-# Session Handoff - 2026-02-17 (Session 19)
+# Session Handoff - 2026-02-18 (Session 20)
 
-## Phase: 11f - Unified Enterprise-Grade Search Experience
+## Phase: 11f - Unified Enterprise-Grade Search Experience (QA + Polish)
 
 ## What Was Accomplished This Session
 
-### 1. Shared TypeScript Foundation (Phase A)
+### 1. QA Bug Fixes from Session 19 (commit 4aa8d7a, pushed)
 
-Created three new modules in `assets/src/ts/lib/`:
+Fixed 7 bugs discovered during code review of the 20-file Session 19 implementation:
 
-- **`filter-engine.ts`** — `SearchFilters` interface covering 30+ filter keys, pure functions: `createFilterState()`, `filtersToParams()` (uses `paged` for V2), `filtersFromParams()`, `filtersToUrl()`, `toggleArrayValue()`, `getActiveChips()`, `removeChip()`, `hasActiveFilters()`, `formatPriceRange()`
-- **`favorites-store.ts`** — Singleton with optimistic localStorage + JWT API sync. `isFavorite()`, `toggle()`, `onChange()`. Guest users get local-only storage.
-- **`property-utils.ts`** — `formatPrice()`, `escapeHtml()`, `getPropertyUrl()`, `getStatusColor()`, `getDomLabel()`
+- **Filter dropdown popovers** — `@click.outside` moved from `<button>` to parent `<div x-data>` so clicking inside the popover content doesn't close it
+- **Autocomplete dispatch mode** — Fixed always-true `$dispatch` check; now uses `data-mode="dispatch"` attribute on wrapper div
+- **Autocomplete:select handler** — Added `handleAutocompleteSelect()` to both search components + `@autocomplete:select` on page templates
+- **Favorite hearts reactivity** — Added `_favVersion` counter incremented via `favStore.onChange()` to force Alpine proxy re-evaluation
+- **formatPrice in map scope** — Added wrapper method on mapSearch component for Alpine template access
+- **Save Search modal** — Added `x-effect` for show trigger + complete modal markup to map page (was missing)
+- **Fav heart default color** — Added explicit `text-gray-400` to `.fav-heart svg`
 
-Created `components/save-search-modal.ts` — Alpine component for naming/saving searches via POST `/bmn/v1/saved-searches`.
+### 2. Filter Param Name Translation (commit 3d69912, pushed)
 
-### 2. List View Conversion (Phase B)
+Fixed critical mismatch between theme-friendly filter names and API parameter names:
 
-- **`property-search.ts`** — Rewritten as thin Alpine wrapper delegating to filter-engine. Added: `_getFilters()/_setFilters()` for engine interop, `activeChips` computed, `removeChip()`, `getMapSearchUrl()`, `moreFiltersOpen`, `saveSearchOpen`, `favStore`, all advanced filter fields.
-- **`filter-bar.php`** (NEW) — Redfin-style horizontal bar: location autocomplete, Price/Beds-Baths/Type dropdown popovers, More toggle, Sort, List/Map view toggle, Save Search button, active filter chips row with Clear All.
-- **`more-filters.php`** (NEW) — Collapsible panel: sqft min/max, lot size, year built, days on market, garage, school grade, checkboxes (price reduced, new this week, virtual tour, fireplace, open house, exclusive).
-- **`property-card.php`** — Added: status badge (green/yellow/red, top-left), "New" badge for DOM < 7, favorite heart (top-right, Alpine-bound), teal price badge, teal hover, DOM days in specs row.
-- **`page-property-search.php`** — Full-width layout (no sidebar), includes filter-bar.php, 24 per_page, save search modal.
-- **`results-grid.php`** — 4-column grid (`xl:grid-cols-4`), passes `status`, `dom`, `listing_id` to cards.
-- **`pagination.php`** — Active page color `bg-navy-700` → `bg-teal-600`.
-- **`filter-sidebar.php`** — DELETED (replaced by filter-bar.php).
+- **PHP (`helpers.php`)** — New `bmn_translate_filter_params()` called by `bmn_search_properties()`. Renames: `property_type→property_sub_type`, `street→street_name`, `garage→garage_spaces_min`, `virtual_tour→has_virtual_tour`, `fireplace→has_fireplace`, `open_house→open_house_only`, `exclusive→exclusive_only`, `sort=newest→sort=list_date_desc`
+- **JS (`filter-engine.ts`)** — New `filtersToApiParams()` function with same rename map, used by map-search.ts `fetchProperties()`
+- **PHP (`FilterBuilder.php`)** — Updated `addTypeConditions()` to handle CSV `property_sub_type` with `IN()` clause
 
-### 3. Map View Conversion (Phase C)
+### 3. Map Pin Filtering Bug (in progress)
 
-- **`map-search.ts`** — Integrated filter-engine while preserving OverlayView pins, resize handle, all map functionality. Added: `_getFilters()/_setFilters()`, `_hydrateFromUrl()`, `activeChips`, `removeChip()`, `getListSearchUrl()`, `favStore`, all advanced filter fields. Uses `formatPrice`/`escapeHtml`/`getPropertyUrl` from property-utils.
-- **`page-map-search.php`** — Replaced 80-line inline filter panel with `get_template_part('template-parts/search/filter-bar', null, array('view' => 'map'))`. Added status badges and favorite hearts to sidebar cards.
-- **`autocomplete.ts`** — Added dispatch mode: when inside a parent with `submitFilters` (search pages), fires `$dispatch('autocomplete:select', {...})` instead of navigating. Homepage retains navigate mode.
+User reported sidebar list filters correctly but map pins don't update. Applied three fixes:
 
-### 4. Config Updates (Phase D)
+- **Stale fetch guard (`_fetchId`)** — Counter prevents older unfiltered idle-fetch responses from overwriting newer filtered results
+- **Debounce timer cleared in `submitFilters()`** — Prevents pending idle-triggered fetch from racing with filter-triggered fetch
+- **Nuclear DOM cleanup** — `document.querySelectorAll('.bmn-pin').forEach(el => el.remove())` removes ALL pin elements from DOM regardless of tracking, catching any orphaned overlays
+- **Console debug logging** — `[MapSearch]` prefixed logs showing fetch lifecycle, stale discards, and pin counts
 
-- **`tailwind.config.js`** — Added teal color scale (50-900).
-- **`main.scss`** — Added: `.btn-search`, `.filter-popover`, `.filter-chip`, `.fav-heart`, `.scrollbar-hide`. Preserved existing `.bmn-pin`, `.bmn-resize-handle` styles.
-- **`functions.php`** — Added `favoritesApiUrl`, `savedSearchesApiUrl` to `bmnTheme` localized object.
-- **`helpers.php`** — Changed `per_page` from 21 to 24.
-- **`main.ts`** — Registered `saveSearchModal` component.
+**Status: Bug still reproducing after these fixes. Needs further investigation next session.**
 
-### 5. Homepage + Build (Phase E)
+### 4. Dynamic Property Types (new this session)
 
-- **`section-listings.php`** — Normalizes API keys (maps `main_photo_url` → `photo`, adds `status`, `dom`) before passing to card. Fixed missing images bug.
-- **Vite build** — Compiled successfully: `main-DRHgIAWD.js` (154KB, 46KB gzip).
+- **`helpers.php`** — `bmn_get_property_types()` now queries `SELECT DISTINCT property_sub_type` from `bmn_properties` with `HAVING cnt >= 3`, sorted by count DESC, cached 1 hour via transient. Returns 23 types from DB instead of hardcoded 4.
+- **`filter-bar.php`** — Type list wrapped in `max-h-52 overflow-y-auto` scrollable container, wider popover `min-w-[260px]`, checkbox `flex-shrink-0`
 
-### 6. Bug Fixes
+### 5. Spatial Polygon Optimization
 
-- **Homepage images missing**: Raw API data uses `main_photo_url` but card expects `photo`. Fixed by normalizing keys in section-listings.php (same pattern as results-grid.php).
-- **Filter dropdowns hidden**: `overflow-x-auto` on filter bar container implicitly set `overflow-y: auto`, clipping absolutely positioned dropdown popovers. Fixed by replacing with `flex-wrap`.
+Replaced ray-casting SQL on float columns with MySQL's native `ST_Contains()` on the POINT column:
+
+- **`GeocodingService.php` (interface)** — Added `buildSpatialPolygonCondition()` method
+- **`SpatialService.php` (implementation)** — New method builds WKT POLYGON from lat/lng pairs, uses `ST_Contains(ST_GeomFromText('POLYGON(...)'), coordinates)` leveraging SPATIAL index
+- **`FilterBuilder.php`** — Switched polygon filter from `buildPolygonCondition('latitude','longitude')` to `buildSpatialPolygonCondition('coordinates')`
+- **Tests** — 3 new tests for the spatial polygon method, updated FilterBuilder mock
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `assets/src/ts/lib/filter-engine.ts` | NEW | Shared filter state management (pure functions) |
-| `assets/src/ts/lib/favorites-store.ts` | NEW | Optimistic localStorage + API sync singleton |
-| `assets/src/ts/lib/property-utils.ts` | NEW | Shared formatters (price, HTML, URLs, status) |
-| `assets/src/ts/components/save-search-modal.ts` | NEW | Save search Alpine component |
-| `assets/src/ts/components/property-search.ts` | REWRITTEN | Thin wrapper over filter-engine |
-| `assets/src/ts/components/map-search.ts` | REWRITTEN | Filter-engine integrated, OverlayView preserved |
-| `assets/src/ts/components/autocomplete.ts` | MODIFIED | Added dispatch mode for search pages |
-| `assets/src/ts/main.ts` | MODIFIED | Registered saveSearchModal |
-| `template-parts/search/filter-bar.php` | NEW | Shared horizontal filter bar |
-| `template-parts/search/more-filters.php` | NEW | Collapsible advanced filters |
-| `template-parts/components/property-card.php` | REWRITTEN | Status badges, DOM, hearts, teal |
-| `template-parts/search/results-grid.php` | MODIFIED | 4-col grid, passes status/dom |
-| `template-parts/search/pagination.php` | MODIFIED | Teal active page |
-| `template-parts/search/filter-sidebar.php` | DELETED | Replaced by filter-bar.php |
-| `template-parts/homepage/section-listings.php` | MODIFIED | API key normalization |
-| `page-property-search.php` | REWRITTEN | Full-width, filter bar, 24/page |
-| `page-map-search.php` | REWRITTEN | Shared filter bar replaces inline panel |
-| `tailwind.config.js` | MODIFIED | Added teal color scale |
-| `assets/src/scss/main.scss` | MODIFIED | Search-specific classes |
-| `functions.php` | MODIFIED | Added API URLs to bmnTheme |
-| `inc/helpers.php` | MODIFIED | per_page 21→24 |
+| `mu-plugins/bmn-platform/src/Geocoding/GeocodingService.php` | MODIFIED | Added buildSpatialPolygonCondition interface |
+| `mu-plugins/bmn-platform/src/Geocoding/SpatialService.php` | MODIFIED | Implemented ST_Contains polygon method |
+| `mu-plugins/bmn-platform/tests/Unit/Geocoding/SpatialServiceTest.php` | MODIFIED | 3 new tests (145 total, all pass) |
+| `plugins/bmn-properties/src/Service/Filter/FilterBuilder.php` | MODIFIED | Switched to spatial polygon condition |
+| `plugins/bmn-properties/tests/Unit/Service/Filter/FilterBuilderTest.php` | MODIFIED | Updated polygon test mock (140 total, all pass) |
+| `themes/bmn-theme/assets/src/ts/components/map-search.ts` | MODIFIED | fetchId guard, debounce clear, DOM cleanup, logging |
+| `themes/bmn-theme/inc/helpers.php` | MODIFIED | Dynamic property types from DB with transient cache |
+| `themes/bmn-theme/template-parts/search/filter-bar.php` | MODIFIED | Scrollable type list, wider popover |
 
-## What Needs QA / Next Steps
+## Known Issues / Next Session Priority
 
-1. **Browser test all filter dropdowns** — Price, Beds/Baths, Type popovers open and filter correctly
-2. **Active chips** — Appear below filter bar, clicking X removes filter and re-fetches
-3. **View toggle** — List ↔ Map preserves all current filters in URL params
-4. **Autocomplete on search pages** — Dispatches to parent filter state instead of navigating
-5. **Favorite hearts** — Toggle on click (optimistic UI), persist to localStorage
-6. **Save Search modal** — Opens, names, saves with JWT
-7. **Status badges** — Green (Active), yellow (Pending), red (Sold) on cards
-8. **"New" badge** — Appears on listings with DOM < 7
-9. **HTMX partial rendering** — Still works on list view after filter changes
-10. **Mobile responsive** — Filter bar wraps, bottom pill toggle on map
-11. **Map pins** — Still render with OverlayView (unchanged approach)
-12. **Homepage cards** — Show images, status, DOM with teal accents
+### P0: Map pins not filtering (CRITICAL)
+The sidebar list and total count update correctly when filters are applied, but the map pins (OverlayView custom price labels) remain unchanged. Three attempted fixes (fetchId guard, debounce clearing, DOM cleanup) have not resolved the issue. The console logging added this session will help diagnose — user should open DevTools console and apply a filter to see `[MapSearch]` logs showing exactly what's happening.
+
+**Possible root causes still to investigate:**
+1. Alpine's reactive proxy wrapping the `google.maps.Map` object may interfere with OverlayView lifecycle — try storing map in module-level variable instead of Alpine state
+2. Google Maps OverlayView `setMap(null)` may not trigger `onRemove()` synchronously with the new `importLibrary()` loading pattern
+3. The idle event may be re-firing after overlay changes, creating a cascade of fetches
+4. Check browser console for `[MapSearch]` debug output to confirm whether `updateMarkers()` is being called and with correct counts
+
+### Other QA Items (from Session 19 list, not yet browser-tested)
+- View toggle (List ↔ Map) preserves all current filters in URL params
+- Mobile responsive — filter bar wraps, bottom pill toggle on map
+- HTMX partial rendering still works on list view
+- Homepage cards show images, status, DOM with teal accents
 
 ## Docker Environment
 - WordPress: http://localhost:8082 (admin: novak55 / Google44*)
 - phpMyAdmin: http://localhost:8083
 - All containers healthy
+
+## Test Results
+- Platform: 145 tests, 287 assertions (all pass, 1 skip)
+- Properties: 140 tests, 280 assertions (all pass)

@@ -306,6 +306,66 @@ class SpatialServiceTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // 22. buildSpatialPolygonCondition: uses ST_Contains
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialPolygonConditionContainsStContains(): void
+    {
+        $polygon = [
+            [42.40, -71.10],
+            [42.40, -71.00],
+            [42.30, -71.00],
+            [42.30, -71.10],
+        ];
+
+        $condition = $this->spatial->buildSpatialPolygonCondition($polygon);
+
+        $this->assertStringContainsString('ST_Contains', $condition, 'Spatial polygon should use ST_Contains.');
+        $this->assertStringContainsString('ST_GeomFromText', $condition, 'Spatial polygon should use ST_GeomFromText.');
+        $this->assertStringContainsString('POLYGON', $condition, 'Spatial polygon should create a POLYGON WKT.');
+        $this->assertStringContainsString('coordinates', $condition, 'Spatial polygon should target coordinates column.');
+    }
+
+    // ------------------------------------------------------------------
+    // 23. buildSpatialPolygonCondition: auto-closes polygon
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialPolygonConditionClosesPolygon(): void
+    {
+        // 3 points — should auto-close (first point appended)
+        $polygon = [
+            [42.40, -71.10],
+            [42.40, -71.00],
+            [42.30, -71.00],
+        ];
+
+        $condition = $this->spatial->buildSpatialPolygonCondition($polygon);
+
+        // WKT should have 4 coordinate pairs (3 + closing = 4)
+        // Each pair is "%f %f" — count the commas between pairs
+        preg_match('/POLYGON\(\((.*)\)\)/', $condition, $matches);
+        $this->assertNotEmpty($matches, 'Should contain a POLYGON WKT string.');
+    }
+
+    // ------------------------------------------------------------------
+    // 24. buildSpatialPolygonCondition: custom column
+    // ------------------------------------------------------------------
+
+    public function testBuildSpatialPolygonConditionCustomColumn(): void
+    {
+        $polygon = [
+            [42.40, -71.10],
+            [42.40, -71.00],
+            [42.30, -71.00],
+        ];
+
+        $condition = $this->spatial->buildSpatialPolygonCondition($polygon, 'geo_point');
+
+        $this->assertStringContainsString('geo_point', $condition);
+        $this->assertStringNotContainsString('coordinates', $condition);
+    }
+
+    // ------------------------------------------------------------------
     // 16. geocodeAddress: empty string returns null
     // ------------------------------------------------------------------
 

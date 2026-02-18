@@ -197,17 +197,50 @@ function bmn_get_user_avatar_url(int $user_id, int $size = 48): string {
 }
 
 /**
- * Get available property types for search forms
+ * Get available property sub-types from the database for search forms.
  *
+ * Queries distinct property_sub_type values from active listings,
+ * sorted by count descending. Cached for 1 hour via transient.
+ *
+ * @param int $min_count Minimum listing count to include a type (default 3)
  * @return array
  */
-function bmn_get_property_types(): array {
-    return array(
-        'Single Family Residence',
-        'Condominium',
-        'Multi Family',
-        'Attached (Townhouse/Rowhouse/Duplex)',
-    );
+function bmn_get_property_types(int $min_count = 3): array {
+    $cache_key = 'bmn_property_sub_types';
+    $cached = get_transient($cache_key);
+
+    if (is_array($cached)) {
+        return $cached;
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'bmn_properties';
+
+    $rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT property_sub_type, COUNT(*) as cnt
+         FROM {$table}
+         WHERE standard_status = %s
+           AND property_sub_type IS NOT NULL
+           AND property_sub_type != ''
+         GROUP BY property_sub_type
+         HAVING cnt >= %d
+         ORDER BY cnt DESC",
+        'Active',
+        $min_count
+    ));
+
+    if (!$rows) {
+        // Fallback if query fails or table empty
+        return array('Single Family Residence', 'Condominium', 'Multi Family');
+    }
+
+    $types = array_map(function ($row) {
+        return $row->property_sub_type;
+    }, $rows);
+
+    set_transient($cache_key, $types, HOUR_IN_SECONDS);
+
+    return $types;
 }
 
 /**

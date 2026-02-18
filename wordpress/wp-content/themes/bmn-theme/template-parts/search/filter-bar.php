@@ -151,18 +151,20 @@ $current_view   = $args['view'] ?? 'list'; // 'list' or 'map'
                 Type
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div x-show="open" x-transition class="filter-popover" x-cloak>
+            <div x-show="open" x-transition class="filter-popover min-w-[260px]" x-cloak>
                 <div class="space-y-2">
-                    <?php foreach ($property_types as $type) : ?>
-                        <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                            <input type="checkbox"
-                                   value="<?php echo esc_attr($type); ?>"
-                                   :checked="property_type.includes('<?php echo esc_js($type); ?>')"
-                                   @change="togglePropertyType('<?php echo esc_js($type); ?>')"
-                                   class="rounded border-gray-300 text-teal-600 focus:ring-teal-500">
-                            <?php echo esc_html($type); ?>
-                        </label>
-                    <?php endforeach; ?>
+                    <div class="max-h-52 overflow-y-auto space-y-1.5 pr-1">
+                        <?php foreach ($property_types as $type) : ?>
+                            <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                <input type="checkbox"
+                                       value="<?php echo esc_attr($type); ?>"
+                                       :checked="property_type.includes('<?php echo esc_js($type); ?>')"
+                                       @change="togglePropertyType('<?php echo esc_js($type); ?>')"
+                                       class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 flex-shrink-0">
+                                <?php echo esc_html($type); ?>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
                     <div class="pt-2 border-t border-gray-100">
                         <label class="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
                         <div class="flex flex-wrap gap-1">

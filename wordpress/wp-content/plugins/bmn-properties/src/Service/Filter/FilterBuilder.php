@@ -223,10 +223,9 @@ class FilterBuilder
         if (!empty($filters['polygon'])) {
             $polygon = is_array($filters['polygon']) ? $filters['polygon'] : json_decode($filters['polygon'], true);
             if (is_array($polygon) && count($polygon) >= 3) {
-                $conditions[] = $this->geocoding->buildPolygonCondition(
+                $conditions[] = $this->geocoding->buildSpatialPolygonCondition(
                     $polygon,
-                    'latitude',
-                    'longitude'
+                    'coordinates'
                 );
             }
         }

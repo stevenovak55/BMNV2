@@ -383,13 +383,13 @@ final class FilterBuilderTest extends TestCase
 
         $this->geocoding
             ->expects($this->once())
-            ->method('buildPolygonCondition')
-            ->with($polygon, 'latitude', 'longitude')
-            ->willReturn('(polygon_condition)');
+            ->method('buildSpatialPolygonCondition')
+            ->with($polygon, 'coordinates')
+            ->willReturn('(spatial_polygon_condition)');
 
         $result = $this->builder->build(['polygon' => json_encode($polygon)]);
 
-        $this->assertStringContainsString('polygon_condition', $result->where);
+        $this->assertStringContainsString('spatial_polygon_condition', $result->where);
     }
 
     // ------------------------------------------------------------------

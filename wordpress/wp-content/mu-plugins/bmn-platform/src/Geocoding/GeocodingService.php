@@ -135,4 +135,19 @@ interface GeocodingService
         float $radiusMiles,
         string $pointColumn = 'coordinates'
     ): string;
+
+    /**
+     * Build a SQL WHERE condition using ST_Contains with a POINT column.
+     *
+     * Uses MySQL's native spatial engine instead of ray-casting on float columns.
+     * Leverages the SPATIAL index on the POINT column for performance.
+     *
+     * @param array  $polygon     Array of [lat, lng] pairs defining the polygon.
+     * @param string $pointColumn Column name of the POINT type.
+     * @return string Prepared SQL condition.
+     */
+    public function buildSpatialPolygonCondition(
+        array $polygon,
+        string $pointColumn = 'coordinates'
+    ): string;
 }

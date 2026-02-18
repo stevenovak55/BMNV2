@@ -401,6 +401,42 @@ class SpatialService implements GeocodingService
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * Uses MySQL's native ST_Contains() with the POINT column and its spatial index,
+     * replacing the ray-casting approach on float columns.
+     * POINT uses X=longitude, Y=latitude in MySQL.
+     */
+    public function buildSpatialPolygonCondition(
+        array $polygon,
+        string $pointColumn = 'coordinates'
+    ): string {
+        global $wpdb;
+
+        $col     = $this->sanitizeColumnName($pointColumn);
+        $polygon = $this->closePolygon($polygon);
+
+        // Build WKT coordinate pairs: "lng lat, lng lat, ..."
+        // MySQL POINT convention: X=longitude, Y=latitude
+        $wktParts = [];
+        $values   = [];
+
+        foreach ($polygon as $point) {
+            $wktParts[] = '%f %f';
+            $values[]   = (float) $point[1]; // longitude → X
+            $values[]   = (float) $point[0]; // latitude  → Y
+        }
+
+        $wktCoords = implode(', ', $wktParts);
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        return $wpdb->prepare(
+            "ST_Contains(ST_GeomFromText(CONCAT('POLYGON(({$wktCoords}))')), {$col})",
+            ...$values
+        );
+    }
+
+    /**
      * Sanitize a SQL column name to prevent injection.
      *
      * Only alphanumeric characters, underscores, and dots are permitted.

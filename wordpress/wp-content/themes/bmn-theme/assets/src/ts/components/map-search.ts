@@ -214,6 +214,7 @@ export function mapSearchComponent() {
     // Debounce timer
     _debounceTimer: null as ReturnType<typeof setTimeout> | null,
     _retryCount: 0,
+    _fetchId: 0,
 
     // Favorites store
     favStore,
@@ -392,6 +393,7 @@ export function mapSearchComponent() {
     async fetchProperties() {
       if (!this.map) return;
 
+      const fetchId = ++this._fetchId;
       this.loading = true;
 
       const bounds = this.map.getBounds();
@@ -402,7 +404,8 @@ export function mapSearchComponent() {
 
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
-      const params = filtersToApiParams(this._getFilters());
+      const filters = this._getFilters();
+      const params = filtersToApiParams(filters);
 
       params.set('bounds', [
         sw.lat().toFixed(6),
@@ -414,10 +417,18 @@ export function mapSearchComponent() {
       // Remove paged for map (no pagination)
       params.delete('paged');
 
+      const url = bmnPageData.propertiesApiUrl + '?' + params.toString();
+      console.debug('[MapSearch] fetch #%d, beds=%s, city=%s, url=%s', fetchId, filters.beds, filters.city, url);
+
       try {
-        const url = bmnPageData.propertiesApiUrl + '?' + params.toString();
         const resp = await fetch(url);
         const json = await resp.json();
+
+        // Discard stale response if a newer fetch has started
+        if (fetchId !== this._fetchId) {
+          console.debug('[MapSearch] fetch #%d discarded (stale, current=#%d)', fetchId, this._fetchId);
+          return;
+        }
 
         if (json.success && json.data) {
           this.listings = json.data;
@@ -428,27 +439,42 @@ export function mapSearchComponent() {
         }
       } catch (err) {
         console.error('Map search fetch error:', err);
+        if (fetchId !== this._fetchId) return;
         this.listings = [];
         this.total = 0;
       }
 
       this.loading = false;
       this.initialLoad = false;
+      console.debug('[MapSearch] fetch #%d complete: %d listings, updating %d markers', fetchId, this.listings.length, Math.min(this.listings.length, MAX_PINS));
       this.updateMarkers();
     },
 
     updateMarkers() {
-      if (!this.map || !PriceMarkerOverlayClass) return;
+      if (!this.map || !PriceMarkerOverlayClass) {
+        console.debug('[MapSearch] updateMarkers skipped: map=%o, overlay=%o', !!this.map, !!PriceMarkerOverlayClass);
+        return;
+      }
 
       if (activeInfoWindow) {
         activeInfoWindow.close();
         activeInfoWindow = null;
       }
 
-      overlayMap.forEach((overlay) => overlay.remove());
+      // 1. Remove tracked overlays via Google Maps API
+      const prevTracked = overlayMap.size;
+      overlayMap.forEach((overlay) => {
+        try { overlay.remove(); } catch (_) { /* ignore */ }
+      });
       overlayMap.clear();
 
+      // 2. Nuclear cleanup: remove ALL .bmn-pin elements from the DOM
+      //    This catches any orphaned pins not tracked in overlayMap
+      const orphanPins = document.querySelectorAll('.bmn-pin');
+      orphanPins.forEach((el) => el.remove());
+
       const toRender = this.listings.slice(0, MAX_PINS);
+      let rendered = 0;
 
       toRender.forEach((listing: PropertyListing) => {
         if (!listing.latitude || !listing.longitude) return;
@@ -468,7 +494,10 @@ export function mapSearchComponent() {
         );
 
         overlayMap.set(listing.listing_id, overlay as OverlayInstance);
+        rendered++;
       });
+
+      console.debug('[MapSearch] updateMarkers: tracked=%d, orphans=%d, added=%d pins', prevTracked, orphanPins.length, rendered);
     },
 
     onPinClick(listing: PropertyListing, priceLabel: string) {
@@ -553,6 +582,11 @@ export function mapSearchComponent() {
     },
 
     submitFilters() {
+      // Cancel any pending idle-triggered fetch to prevent race conditions
+      if (this._debounceTimer) {
+        clearTimeout(this._debounceTimer);
+        this._debounceTimer = null;
+      }
       this.mobileFiltersOpen = false;
       this.moreFiltersOpen = false;
       this.fetchProperties();
