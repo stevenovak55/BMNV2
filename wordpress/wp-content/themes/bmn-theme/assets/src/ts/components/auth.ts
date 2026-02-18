@@ -130,7 +130,7 @@ export function authFormComponent(
         }
 
         // Store token and redirect
-        const token = data.data?.token || data.token;
+        const token = data.data?.access_token || data.data?.token || data.token;
         if (token) {
           localStorage.setItem('bmn_token', token);
         }
