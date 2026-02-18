@@ -38,6 +38,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                 userMenuOpen: false,
                 jwtLoggedIn: false,
                 jwtUserName: '',
+                jwtAvatarUrl: '',
                 init() {
                     const token = localStorage.getItem('bmn_token');
                     this.jwtLoggedIn = !!token;
@@ -45,6 +46,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                         try {
                             const user = JSON.parse(localStorage.getItem('bmn_user') || '{}');
                             this.jwtUserName = user.name || 'Account';
+                            this.jwtAvatarUrl = user.avatar_url || '';
                         } catch { this.jwtUserName = 'Account'; }
                     }
                 },
@@ -113,7 +115,8 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                                         @click.outside="userMenuOpen = false"
                                         class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
                                         :aria-expanded="userMenuOpen">
-                                    <span class="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center text-sm font-bold text-navy-700"
+                                    <img x-show="jwtAvatarUrl" :src="jwtAvatarUrl" alt="" class="w-8 h-8 rounded-full object-cover">
+                                    <span x-show="!jwtAvatarUrl" class="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center text-sm font-bold text-navy-700"
                                           x-text="jwtUserName.charAt(0).toUpperCase()"></span>
                                     <span class="text-sm font-medium text-gray-700" x-text="jwtUserName"></span>
                                     <svg class="w-4 h-4 text-gray-400 transition-transform" :class="userMenuOpen && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -235,6 +238,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                  x-data="{
                      drawerLoggedIn: !!localStorage.getItem('bmn_token'),
                      drawerUserName: (() => { try { return JSON.parse(localStorage.getItem('bmn_user') || '{}').name || 'Account'; } catch { return 'Account'; } })(),
+                     drawerAvatarUrl: (() => { try { return JSON.parse(localStorage.getItem('bmn_user') || '{}').avatar_url || ''; } catch { return ''; } })(),
                      expanded: false
                  }">
                 <!-- Logged-in state -->
@@ -243,7 +247,8 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                         <button @click="expanded = !expanded"
                                 class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
                                 :aria-expanded="expanded">
-                            <span class="w-9 h-9 rounded-full bg-navy-100 flex items-center justify-center text-sm font-bold text-navy-700"
+                            <img x-show="drawerAvatarUrl" :src="drawerAvatarUrl" alt="" class="w-9 h-9 rounded-full object-cover">
+                            <span x-show="!drawerAvatarUrl" class="w-9 h-9 rounded-full bg-navy-100 flex items-center justify-center text-sm font-bold text-navy-700"
                                   x-text="drawerUserName.charAt(0).toUpperCase()"></span>
                             <span class="flex-1 text-left text-sm font-medium text-gray-700" x-text="drawerUserName"></span>
                             <svg class="w-4 h-4 text-gray-400 transition-transform" :class="expanded && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
