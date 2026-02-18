@@ -73,7 +73,7 @@ for ($i = 1; $i <= $pages; $i++) {
         <?php if ($p === '...') : ?>
             <span class="px-2 py-2 text-sm text-gray-400">&hellip;</span>
         <?php elseif ($p === $page) : ?>
-            <span class="px-3 py-2 text-sm font-semibold text-white bg-navy-700 rounded-lg min-w-[36px] text-center">
+            <span class="px-3 py-2 text-sm font-semibold text-white bg-teal-600 rounded-lg min-w-[36px] text-center">
                 <?php echo intval($p); ?>
             </span>
         <?php else :

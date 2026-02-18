@@ -4,8 +4,10 @@
  *
  * Rendered both on initial page load and as HTMX partial.
  * Normalizes API response keys to property-card.php format.
+ * 4-column grid (24 per page = 4x6).
  *
  * @package bmn_theme
+ * @version 3.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -31,18 +33,18 @@ $filters  = $args['filters'] ?? array();
         <h3 class="text-lg font-semibold text-gray-700 mb-1">No Properties Found</h3>
         <p class="text-sm text-gray-500 max-w-sm">Try adjusting your filters or expanding your search area to find more properties.</p>
         <button @click="resetFilters()"
-                class="mt-4 px-4 py-2 text-sm font-medium text-navy-700 bg-navy-50 rounded-lg hover:bg-navy-100 transition-colors">
+                class="mt-4 px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors">
             Reset Filters
         </button>
     </div>
 <?php else : ?>
-    <!-- Results Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+    <!-- Results Grid (4 columns) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         <?php foreach ($listings as $listing) :
             // Normalize API response keys to property-card.php format
             $listing = (array) $listing;
 
-            // V2 API field names: listing_id, address, price, beds, baths, sqft, main_photo_url, status
+            // V2 API field names: listing_id, address, price, beds, baths, sqft, main_photo_url, status, dom
             $card_data = array(
                 'url'        => bmn_get_property_url($listing['listing_id'] ?? ''),
                 'photo'      => $listing['main_photo_url'] ?? '',
@@ -56,6 +58,8 @@ $filters  = $args['filters'] ?? array();
                 'sqft'       => !empty($listing['sqft']) ? number_format(floatval($listing['sqft'])) : '',
                 'type'       => $listing['property_sub_type'] ?? $listing['property_type'] ?? '',
                 'listing_id' => $listing['listing_id'] ?? '',
+                'status'     => $listing['status'] ?? 'Active',
+                'dom'        => $listing['dom'] ?? $listing['days_on_market'] ?? '',
             );
 
             get_template_part('template-parts/components/property-card', null, array('listing' => $card_data));

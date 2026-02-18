@@ -3,10 +3,12 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 11e (Map Search) - COMPLETE
-**Status:** Map search page polished (Session 18). Split-screen layout with Google Maps + Alpine.js. Custom OverlayView price pins (replaced AdvancedMarkerElement which required Cloud Console mapId). Teal gradient pins matching v1. 452px sidebar, draggable resize handle, viewport-locked height, mobile bottom pill toggle.
-**Previous Phase:** 11d (QA + Performance Benchmarking) - 3 bug fixes, all 1,643 tests pass
-**Next Phase:** Phase 12 (iOS SwiftUI rebuild)
+## Current Phase: 11f (Unified Search Experience) - IN PROGRESS
+**Status:** Session 19 — Core implementation complete. Redfin-style horizontal filter bar replaces sidebar on list view and inline panel on map view. Shared `filter-engine.ts` module consumed by both Alpine components. Unified property cards with status badges, DOM labels, favorite hearts, teal accents. View toggle (list/map) preserves filters via URL params. 20 files changed (6 new, 13 modified, 1 deleted). Vite build passes. All pages return HTTP 200.
+**What's done:** Phases A-E of the unified search plan — shared TS foundation, list view conversion, map view conversion, SCSS/config updates, homepage card normalization.
+**What needs QA/polish:** Browser testing of all filter dropdowns, chips, favorites, save search modal, autocomplete dispatch mode on search pages, mobile responsive behavior, HTMX partial rendering still works.
+**Previous Phase:** 11e (Map Search) - COMPLETE (Session 18)
+**Next Phase:** QA + polish of unified search, then Phase 12 (iOS SwiftUI rebuild)
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -140,7 +142,7 @@ The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT 
 | Site URL | https://bmnboston.com | http://localhost:8082 |
 | REST namespace | `/mld-mobile/v1/` | `/bmn/v1/` |
 | DB tables | `bme_listings`, `bme_media`, `bme_listing_summary` | `bmn_properties`, `bmn_media` |
-| Theme | `flavor-flavor-flavor` (v1.5.9) | `bmn-theme` (v2.1.0) |
+| Theme | `flavor-flavor-flavor` (v1.5.9) | `bmn-theme` (v3.0.0) |
 | Plugins | `mls-listings-display`, `bmn-schools` (v1) | `bmn-properties`, `bmn-schools` (v2) |
 | Query classes | `MLD_Query`, `BNE_MLS_Helpers` | REST API via `rest_do_request()` |
 | Field: address | `unparsed_address` | `address` |
@@ -151,4 +153,33 @@ The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT 
 | Field: status | `standard_status` | `status` |
 | Search response | `{success, data: {listings, total, total_pages}}` | `{success, data: [...], meta: {total, total_pages}}` |
 
-*Last updated: 2026-02-17 (Session 18 - Phase 11e Map Search QA + Polish)*
+## Theme Search Architecture (v3.0.0)
+
+### Shared TypeScript Modules (`assets/src/ts/lib/`)
+| Module | Purpose |
+|--------|---------|
+| `filter-engine.ts` | SearchFilters interface, serialization (`paged` param), chips, reset. Pure functions — no Alpine/DOM dependency |
+| `favorites-store.ts` | Optimistic localStorage + JWT API sync singleton |
+| `property-utils.ts` | formatPrice, escapeHtml, getPropertyUrl, getStatusColor, getDomLabel |
+
+### Alpine Components
+| Component | Registration | Used By |
+|-----------|-------------|---------|
+| `filterState` | `property-search.ts` | `page-property-search.php` |
+| `mapSearch` | `map-search.ts` | `page-map-search.php` |
+| `saveSearchModal` | `save-search-modal.ts` | Both search pages |
+| `autocomplete` | `autocomplete.ts` | Filter bar (dispatch mode) + homepage (navigate mode) |
+
+### PHP Templates
+| Template | Purpose |
+|----------|---------|
+| `filter-bar.php` | Shared horizontal filter bar (autocomplete, dropdowns, chips, view toggle) |
+| `more-filters.php` | Collapsible advanced filters (sqft, lot, year, DOM, amenities) |
+| `property-card.php` | Unified card with status badges, DOM labels, favorite hearts, teal accents |
+| `results-grid.php` | 4-column grid, normalizes API keys for card |
+
+### Color Convention
+- **Teal-600** — All search UI (filter bar, buttons, badges, pins, pagination)
+- **Navy-700** — Site header/footer/CTAs (btn-primary stays navy)
+
+*Last updated: 2026-02-17 (Session 19 - Phase 11f Unified Search Experience)*

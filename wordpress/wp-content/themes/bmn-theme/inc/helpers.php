@@ -405,7 +405,7 @@ function bmn_build_price_history_from_property(?array $property): array {
  */
 function bmn_search_properties(array $filters = array()): array {
     $defaults = array(
-        'per_page' => 21,
+        'per_page' => 24,
         'page'     => 1,
         'sort'     => 'newest',
     );

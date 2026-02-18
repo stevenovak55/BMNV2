@@ -2,12 +2,11 @@
 /**
  * Template Name: Property Search
  *
- * Property search page with HTMX partial rendering.
- * Full page loads render everything; HTMX filter/pagination requests
- * return only the results-grid fragment.
+ * Full-width property search with Redfin-style filter bar.
+ * HTMX partial rendering for filter/pagination updates.
  *
  * @package bmn_theme
- * @version 2.1.0
+ * @version 3.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -31,7 +30,20 @@ $filters = array(
     'new_listing_days' => sanitize_text_field($_GET['new_listing_days'] ?? ''),
     'sort'             => sanitize_text_field($_GET['sort'] ?? 'newest'),
     'page'             => max(1, intval($_GET['paged'] ?? 1)),
-    'per_page'         => 21,
+    'per_page'         => 24,
+    // Advanced filters
+    'sqft_min'         => sanitize_text_field($_GET['sqft_min'] ?? ''),
+    'sqft_max'         => sanitize_text_field($_GET['sqft_max'] ?? ''),
+    'lot_size_min'     => sanitize_text_field($_GET['lot_size_min'] ?? ''),
+    'lot_size_max'     => sanitize_text_field($_GET['lot_size_max'] ?? ''),
+    'year_built_min'   => sanitize_text_field($_GET['year_built_min'] ?? ''),
+    'year_built_max'   => sanitize_text_field($_GET['year_built_max'] ?? ''),
+    'max_dom'          => sanitize_text_field($_GET['max_dom'] ?? ''),
+    'garage'           => sanitize_text_field($_GET['garage'] ?? ''),
+    'virtual_tour'     => sanitize_text_field($_GET['virtual_tour'] ?? ''),
+    'fireplace'        => sanitize_text_field($_GET['fireplace'] ?? ''),
+    'open_house'       => sanitize_text_field($_GET['open_house'] ?? ''),
+    'exclusive'        => sanitize_text_field($_GET['exclusive'] ?? ''),
 );
 
 // Remove empty values before querying
@@ -73,6 +85,19 @@ $alpine_filters = array(
     'page'             => $results['page'],
     'total'            => $results['total'],
     'pages'            => $results['pages'],
+    // Advanced
+    'sqft_min'         => $filters['sqft_min'],
+    'sqft_max'         => $filters['sqft_max'],
+    'lot_size_min'     => $filters['lot_size_min'],
+    'lot_size_max'     => $filters['lot_size_max'],
+    'year_built_min'   => $filters['year_built_min'],
+    'year_built_max'   => $filters['year_built_max'],
+    'max_dom'          => $filters['max_dom'],
+    'garage'           => $filters['garage'],
+    'virtual_tour'     => $filters['virtual_tour'],
+    'fireplace'        => $filters['fireplace'],
+    'open_house'       => $filters['open_house'],
+    'exclusive'        => $filters['exclusive'],
 );
 
 get_header();
@@ -81,63 +106,59 @@ get_header();
 <main id="main" class="flex-1 bg-gray-50"
       x-data="filterState(<?php echo esc_attr(wp_json_encode($alpine_filters)); ?>)">
 
-    <!-- Page Header -->
-    <div class="bg-white border-b border-gray-200">
-        <div class="container mx-auto px-4 lg:px-8 py-5">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Property Search</h1>
-                    <p class="text-sm text-gray-500 mt-1" x-text="totalLabel"></p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <!-- Mobile filter toggle -->
-                    <button @click="mobileFiltersOpen = !mobileFiltersOpen"
-                            class="lg:hidden flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-                        Filters
-                    </button>
-                    <!-- Sort dropdown -->
-                    <select x-model="sort" @change="submitFilters()"
-                            class="text-sm border-gray-200 rounded-lg focus:border-navy-500 focus:ring-navy-500">
-                        <option value="newest">Newest First</option>
-                        <option value="price_asc">Price: Low to High</option>
-                        <option value="price_desc">Price: High to Low</option>
-                        <option value="beds_desc">Most Bedrooms</option>
-                        <option value="sqft_desc">Largest</option>
-                    </select>
-                </div>
-            </div>
+    <!-- Filter Bar -->
+    <?php get_template_part('template-parts/search/filter-bar', null, array('view' => 'list')); ?>
+
+    <!-- Results -->
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+        <!-- Loading overlay -->
+        <div x-show="loading" class="flex items-center justify-center py-12">
+            <svg class="animate-spin h-8 w-8 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </div>
+
+        <div id="results-grid" x-show="!loading">
+            <?php
+            get_template_part('template-parts/search/results-grid', null, array(
+                'listings' => $results['listings'],
+                'total'    => $results['total'],
+                'pages'    => $results['pages'],
+                'page'     => $results['page'],
+                'filters'  => $filters,
+            ));
+            ?>
         </div>
     </div>
 
-    <!-- Content: Sidebar + Results -->
-    <div class="container mx-auto px-4 lg:px-8 py-6">
-        <div class="flex gap-6">
-
-            <!-- Filter Sidebar -->
-            <?php get_template_part('template-parts/search/filter-sidebar', null, array('filters' => $filters)); ?>
-
-            <!-- Results Grid -->
-            <div class="flex-1 min-w-0">
-                <!-- Loading overlay -->
-                <div x-show="loading" class="flex items-center justify-center py-12">
-                    <svg class="animate-spin h-8 w-8 text-navy-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                </div>
-
-                <div id="results-grid" x-show="!loading">
-                    <?php
-                    get_template_part('template-parts/search/results-grid', null, array(
-                        'listings' => $results['listings'],
-                        'total'    => $results['total'],
-                        'pages'    => $results['pages'],
-                        'page'     => $results['page'],
-                        'filters'  => $filters,
-                    ));
-                    ?>
-                </div>
+    <!-- Save Search Modal -->
+    <div x-data="saveSearchModal" x-show="saveSearchOpen || open" x-cloak>
+        <div x-show="saveSearchOpen || open"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black/50 z-50"
+             @click="saveSearchOpen = false; close()">
+        </div>
+        <div x-show="saveSearchOpen || open"
+             x-transition
+             class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl p-6 z-50 w-full max-w-md"
+             @click.outside="saveSearchOpen = false; close()">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Save This Search</h3>
+            <input type="text" x-model="name" placeholder="Name your search..."
+                   class="w-full text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600 mb-3"
+                   @keydown.enter="save(_getFilters())">
+            <p x-show="error" x-text="error" class="text-sm text-red-600 mb-3"></p>
+            <p x-show="success" class="text-sm text-green-600 mb-3">Search saved!</p>
+            <div class="flex gap-3">
+                <button @click="save(_getFilters())" :disabled="saving"
+                        class="btn-search flex-1" x-text="saving ? 'Saving...' : 'Save Search'"></button>
+                <button @click="saveSearchOpen = false; close()"
+                        class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
             </div>
         </div>
     </div>

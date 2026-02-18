@@ -4,10 +4,10 @@
  *
  * Split-screen property search with interactive Google Map on the left
  * and scrollable results sidebar on the right (452px, resizable).
- * Modeled after v1's half-map layout.
+ * Uses shared filter-bar.php for consistent filter UI across views.
  *
  * @package bmn_theme
- * @version 2.2.0
+ * @version 3.0.0
  */
 
 if (!defined('ABSPATH')) {
@@ -15,7 +15,6 @@ if (!defined('ABSPATH')) {
 }
 
 $google_maps_key = get_option('bmn_google_maps_api_key', '');
-$property_types = bmn_get_property_types();
 
 get_header();
 ?>
@@ -23,7 +22,6 @@ get_header();
 <!-- Lock page to viewport height (no footer on map search, like v1) -->
 <style>
     #page { height: 100vh; max-height: 100vh; overflow: hidden; }
-    /* Hide admin bar spacing if present */
     body.admin-bar #page { height: calc(100vh - 32px); max-height: calc(100vh - 32px); }
     @media screen and (max-width: 782px) {
         body.admin-bar #page { height: calc(100vh - 46px); max-height: calc(100vh - 46px); }
@@ -32,124 +30,8 @@ get_header();
 
 <main id="main" class="flex-1 flex flex-col overflow-hidden" x-data="mapSearch">
 
-    <!-- Top Bar: Filters + Sort -->
-    <div class="bg-white border-b border-gray-200 z-20 relative">
-        <div class="flex items-center justify-between px-4 py-2.5">
-            <div class="flex items-center gap-3">
-                <button @click="mobileFiltersOpen = !mobileFiltersOpen"
-                        class="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-                    Filters
-                </button>
-                <p class="text-sm text-gray-500 hidden sm:block" x-text="totalLabel"></p>
-            </div>
-            <div class="flex items-center gap-3">
-                <select x-model="sort" @change="submitFilters()"
-                        class="text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600 py-1.5">
-                    <option value="newest">Newest First</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                    <option value="beds_desc">Most Bedrooms</option>
-                    <option value="sqft_desc">Largest</option>
-                </select>
-                <a href="<?php echo esc_url(bmn_get_search_url()); ?>"
-                   class="hidden sm:flex items-center gap-1.5 text-sm text-gray-500 hover:text-teal-700 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                    List View
-                </a>
-            </div>
-        </div>
-        <!-- Mobile results count -->
-        <div class="px-4 pb-2 sm:hidden">
-            <p class="text-sm text-gray-500" x-text="totalLabel"></p>
-        </div>
-    </div>
-
-    <!-- Filter Panel (slide-down) -->
-    <div x-show="mobileFiltersOpen" x-collapse x-cloak
-         class="bg-white border-b border-gray-200 z-10 relative">
-        <div class="max-w-4xl mx-auto px-4 py-4">
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Min Price</label>
-                    <input type="number" x-model="min_price" placeholder="Any" min="0" step="25000"
-                           class="w-full text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Max Price</label>
-                    <input type="number" x-model="max_price" placeholder="Any" min="0" step="25000"
-                           class="w-full text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Beds</label>
-                    <select x-model="beds" class="w-full text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600">
-                        <option value="">Any</option>
-                        <option value="1">1+</option>
-                        <option value="2">2+</option>
-                        <option value="3">3+</option>
-                        <option value="4">4+</option>
-                        <option value="5">5+</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Baths</label>
-                    <select x-model="baths" class="w-full text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600">
-                        <option value="">Any</option>
-                        <option value="1">1+</option>
-                        <option value="1.5">1.5+</option>
-                        <option value="2">2+</option>
-                        <option value="3">3+</option>
-                        <option value="4">4+</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Type</label>
-                    <div class="space-y-1">
-                        <?php foreach ($property_types as $type) : ?>
-                            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                                <input type="checkbox"
-                                       value="<?php echo esc_attr($type); ?>"
-                                       :checked="property_type.includes('<?php echo esc_js($type); ?>')"
-                                       @change="togglePropertyType('<?php echo esc_js($type); ?>')"
-                                       class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5">
-                                <span class="truncate"><?php echo esc_html($type); ?></span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                    <div class="flex flex-wrap gap-1 mb-2">
-                        <?php foreach (array('Active', 'Pending', 'Sold') as $status_val) : ?>
-                            <button type="button"
-                                    @click="toggleStatus('<?php echo esc_js($status_val); ?>')"
-                                    :class="status.includes('<?php echo esc_js($status_val); ?>') ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-600 border-gray-200'"
-                                    class="px-2 py-1 text-xs font-medium border rounded-md transition-colors">
-                                <?php echo esc_html($status_val); ?>
-                            </button>
-                        <?php endforeach; ?>
-                    </div>
-                    <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-                        <input type="checkbox"
-                               :checked="price_reduced === '1'"
-                               @change="price_reduced = $event.target.checked ? '1' : ''"
-                               class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5">
-                        Price Reduced
-                    </label>
-                </div>
-            </div>
-            <div class="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
-                <button @click="submitFilters()"
-                        class="inline-flex items-center px-5 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                    Apply Filters
-                </button>
-                <button @click="resetFilters()"
-                        class="text-sm font-medium text-gray-500 hover:text-gray-700">
-                    Reset All
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Shared Filter Bar -->
+    <?php get_template_part('template-parts/search/filter-bar', null, array('view' => 'map')); ?>
 
     <!-- Split Screen: Map (flex) | Resize Handle | Sidebar (452px) -->
     <div id="map-wrapper" class="flex-1 flex min-h-0 relative">
@@ -219,16 +101,16 @@ get_header();
                 <!-- Property Cards -->
                 <div x-show="!initialLoad && listings.length > 0" class="divide-y divide-gray-100">
                     <template x-for="listing in listings" :key="listing.listing_id">
-                        <a :href="getPropertyUrl(listing.listing_id)"
+                        <a :href="'<?php echo esc_url(home_url('/property/')); ?>' + listing.listing_id + '/'"
                            :data-listing-id="listing.listing_id"
-                           class="flex gap-3 p-3 hover:bg-white transition-colors cursor-pointer"
+                           class="flex gap-3 p-3 hover:bg-white transition-colors cursor-pointer relative"
                            :class="activeMarkerId === listing.listing_id ? 'bg-teal-50 ring-1 ring-teal-200' : ''"
                            @mouseenter="highlightMarker(listing.listing_id)"
                            @mouseleave="unhighlightMarker(listing.listing_id)"
                            @click.prevent="centerOnProperty(listing.listing_id)">
 
                             <!-- Photo -->
-                            <div class="flex-shrink-0 w-28 h-20 rounded-lg overflow-hidden bg-gray-100">
+                            <div class="flex-shrink-0 w-28 h-20 rounded-lg overflow-hidden bg-gray-100 relative">
                                 <img x-show="listing.main_photo_url"
                                      :src="listing.main_photo_url"
                                      :alt="listing.address"
@@ -237,11 +119,20 @@ get_header();
                                 <div x-show="!listing.main_photo_url" class="flex items-center justify-center h-full text-gray-300">
                                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                                 </div>
+                                <!-- Status badge -->
+                                <span x-show="listing.status && listing.status !== 'Active'"
+                                      x-text="listing.status"
+                                      :class="listing.status === 'Pending' || listing.status === 'Active Under Contract' ? 'bg-yellow-100 text-yellow-800' : listing.status === 'Closed' || listing.status === 'Sold' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'"
+                                      class="absolute top-1 left-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"></span>
                             </div>
 
                             <!-- Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="font-bold text-teal-700 text-sm" x-text="formatPrice(listing.price)"></div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-teal-700 text-sm" x-text="formatPrice(listing.price)"></span>
+                                    <span x-show="listing.dom && listing.dom < 7"
+                                          class="text-[10px] font-semibold bg-green-500 text-white px-1.5 py-0.5 rounded">New</span>
+                                </div>
                                 <div class="text-sm font-medium text-gray-900 truncate mt-0.5" x-text="listing.address"></div>
                                 <div class="text-xs text-gray-500 mt-0.5" x-text="listing.city + ', ' + listing.state + ' ' + listing.zip"></div>
                                 <div class="flex items-center gap-2 mt-1 text-xs text-gray-500">
@@ -252,6 +143,16 @@ get_header();
                                     <span x-show="listing.sqft" x-text="Number(listing.sqft).toLocaleString() + ' sqft'"></span>
                                 </div>
                             </div>
+
+                            <!-- Favorite heart -->
+                            <button class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/80 shadow-sm hover:bg-white transition-all"
+                                    :class="favStore?.isFavorite(listing.listing_id) ? 'text-red-500' : 'text-gray-400'"
+                                    @click.prevent.stop="favStore?.toggle(listing.listing_id)">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                                     :fill="favStore?.isFavorite(listing.listing_id) ? 'currentColor' : 'none'">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                </svg>
+                            </button>
                         </a>
                     </template>
                 </div>

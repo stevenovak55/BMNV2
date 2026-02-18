@@ -1,8 +1,16 @@
 /**
  * Hero Search Autocomplete Component
  *
- * Debounced input with HTMX-powered suggestions from
- * /mld-mobile/v1/search/autocomplete
+ * Debounced input with suggestions from /bmn/v1/properties/autocomplete.
+ *
+ * Two modes:
+ * - Navigate (default): redirects to search page on select (homepage, standalone)
+ * - Dispatch: fires $dispatch('autocomplete:select', {...}) for parent components
+ *   to consume (used inside filter-bar on map/list search pages)
+ *
+ * Mode is auto-detected: if the component is inside a parent that has a
+ * `submitFilters` method (filterState or mapSearch), it dispatches.
+ * Otherwise it navigates.
  */
 
 declare const bmnTheme: {
@@ -33,7 +41,6 @@ export function autocompleteComponent() {
         return;
       }
 
-      // Abort previous request
       if (this.abortController) {
         this.abortController.abort();
       }
@@ -69,7 +76,21 @@ export function autocompleteComponent() {
       this.query = suggestion.text;
       this.showSuggestions = false;
 
-      // Navigate based on suggestion type
+      // Check if inside a search page (parent has submitFilters)
+      const isInsideSearch = typeof (this as any).$root?.submitFilters === 'function'
+        || typeof (this as any).$dispatch === 'function';
+
+      // Try dispatch mode: update parent filter state directly
+      if (isInsideSearch && typeof (this as any).$dispatch === 'function') {
+        (this as any).$dispatch('autocomplete:select', {
+          type: suggestion.type,
+          value: suggestion.value,
+          text: suggestion.text,
+        });
+        return;
+      }
+
+      // Navigate mode: redirect to search page
       const searchUrl = bmnTheme.searchUrl;
       switch (suggestion.type) {
         case 'city':
@@ -82,7 +103,6 @@ export function autocompleteComponent() {
           window.location.href = `${searchUrl}?address=${encodeURIComponent(suggestion.value)}`;
           break;
         case 'mls_number':
-          // Direct to property page using listing_id
           window.location.href = `/property/${suggestion.value}/`;
           break;
         case 'street':

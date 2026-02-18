@@ -23,7 +23,25 @@ $listings = bmn_get_newest_listings(8);
         <?php if (!empty($listings)) : ?>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <?php foreach ($listings as $listing) :
-                    get_template_part('template-parts/components/property-card', null, array('listing' => $listing));
+                    $listing = (array) $listing;
+                    // Normalize API keys to property-card format
+                    $card_data = array(
+                        'url'        => bmn_get_property_url($listing['listing_id'] ?? ''),
+                        'photo'      => $listing['main_photo_url'] ?? '',
+                        'address'    => $listing['address'] ?? '',
+                        'city'       => $listing['city'] ?? '',
+                        'state'      => $listing['state'] ?? 'MA',
+                        'zip'        => $listing['zip'] ?? '',
+                        'price'      => bmn_format_price(floatval($listing['price'] ?? 0)),
+                        'beds'       => $listing['beds'] ?? '',
+                        'baths'      => $listing['baths'] ?? '',
+                        'sqft'       => !empty($listing['sqft']) ? number_format(floatval($listing['sqft'])) : '',
+                        'type'       => $listing['property_sub_type'] ?? $listing['property_type'] ?? '',
+                        'listing_id' => $listing['listing_id'] ?? '',
+                        'status'     => $listing['status'] ?? 'Active',
+                        'dom'        => $listing['dom'] ?? $listing['days_on_market'] ?? '',
+                    );
+                    get_template_part('template-parts/components/property-card', null, array('listing' => $card_data));
                 endforeach; ?>
             </div>
 

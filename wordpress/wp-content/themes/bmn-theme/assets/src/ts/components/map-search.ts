@@ -1,16 +1,34 @@
 /**
  * Map Search Component (Alpine.js + Google Maps)
  *
- * Split-screen map search modeled after v1's half-map view:
- * - Map fills left side, fixed-width results sidebar on right (452px)
+ * Split-screen map search with:
+ * - Custom OverlayView price pins (no mapId needed)
+ * - Shared filter-engine for state management
  * - Draggable resize handle between panes
- * - Price-label pins using custom OverlayView (no mapId needed)
- * - Mobile: toggle between map and list via fixed bottom pill
+ * - Mobile toggle between map and list
+ * - Favorite hearts on sidebar cards
+ *
+ * @version 3.0.0
  */
+
+import {
+  type SearchFilters,
+  createFilterState,
+  filtersToParams,
+  filtersFromParams,
+  toggleArrayValue,
+  getActiveChips,
+  removeChip as engineRemoveChip,
+  hasActiveFilters,
+  type FilterChip,
+} from '../lib/filter-engine';
+import { favStore } from '../lib/favorites-store';
+import { formatPrice, escapeHtml, getPropertyUrl } from '../lib/property-utils';
 
 declare const bmnTheme: {
   restUrl: string;
   searchUrl: string;
+  mapSearchUrl: string;
   homeUrl: string;
 };
 
@@ -36,6 +54,7 @@ interface PropertyListing {
   property_type: string;
   property_sub_type: string;
   status: string;
+  dom: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -141,9 +160,11 @@ const MAX_PINS = 200;
 
 export function mapSearchComponent() {
   return {
-    // Filter state
+    // Filter state (flat for Alpine binding)
     city: '',
     neighborhood: '',
+    address: '',
+    street: '',
     min_price: '',
     max_price: '',
     beds: '',
@@ -154,6 +175,19 @@ export function mapSearchComponent() {
     price_reduced: '',
     new_listing_days: '',
     sort: 'newest',
+    // Advanced
+    sqft_min: '',
+    sqft_max: '',
+    lot_size_min: '',
+    lot_size_max: '',
+    year_built_min: '',
+    year_built_max: '',
+    max_dom: '',
+    garage: '',
+    virtual_tour: '',
+    fireplace: '',
+    open_house: '',
+    exclusive: '',
 
     // Results
     listings: [] as PropertyListing[],
@@ -169,6 +203,8 @@ export function mapSearchComponent() {
     // Mobile
     mobileView: 'map' as 'map' | 'list',
     mobileFiltersOpen: false,
+    moreFiltersOpen: false,
+    saveSearchOpen: false,
 
     // Resize handle
     isResizing: false,
@@ -178,18 +214,91 @@ export function mapSearchComponent() {
     _debounceTimer: null as ReturnType<typeof setTimeout> | null,
     _retryCount: 0,
 
+    // Favorites store
+    favStore,
+
     init() {
+      // Hydrate from URL params
+      this._hydrateFromUrl();
+
       this.$nextTick(() => {
         this.initMap();
         this.initResizeHandle();
       });
     },
 
+    _hydrateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const f = filtersFromParams(params);
+      this._setFilters(f);
+    },
+
+    /** Snapshot current flat state → SearchFilters object */
+    _getFilters(): SearchFilters {
+      return {
+        city: this.city,
+        neighborhood: this.neighborhood,
+        address: this.address,
+        street: this.street,
+        min_price: this.min_price,
+        max_price: this.max_price,
+        beds: this.beds,
+        baths: this.baths,
+        property_type: [...this.property_type],
+        status: [...this.status],
+        school_grade: this.school_grade,
+        price_reduced: this.price_reduced,
+        new_listing_days: this.new_listing_days,
+        sort: this.sort,
+        page: 1,
+        sqft_min: this.sqft_min,
+        sqft_max: this.sqft_max,
+        lot_size_min: this.lot_size_min,
+        lot_size_max: this.lot_size_max,
+        year_built_min: this.year_built_min,
+        year_built_max: this.year_built_max,
+        max_dom: this.max_dom,
+        garage: this.garage,
+        virtual_tour: this.virtual_tour,
+        fireplace: this.fireplace,
+        open_house: this.open_house,
+        exclusive: this.exclusive,
+      };
+    },
+
+    _setFilters(f: SearchFilters) {
+      this.city = f.city;
+      this.neighborhood = f.neighborhood;
+      this.address = f.address;
+      this.street = f.street;
+      this.min_price = f.min_price;
+      this.max_price = f.max_price;
+      this.beds = f.beds;
+      this.baths = f.baths;
+      this.property_type = [...f.property_type];
+      this.status = [...f.status];
+      this.school_grade = f.school_grade;
+      this.price_reduced = f.price_reduced;
+      this.new_listing_days = f.new_listing_days;
+      this.sort = f.sort;
+      this.sqft_min = f.sqft_min;
+      this.sqft_max = f.sqft_max;
+      this.lot_size_min = f.lot_size_min;
+      this.lot_size_max = f.lot_size_max;
+      this.year_built_min = f.year_built_min;
+      this.year_built_max = f.year_built_max;
+      this.max_dom = f.max_dom;
+      this.garage = f.garage;
+      this.virtual_tour = f.virtual_tour;
+      this.fireplace = f.fireplace;
+      this.open_house = f.open_house;
+      this.exclusive = f.exclusive;
+    },
+
     async initMap() {
       const container = document.getElementById('map-container');
       if (!container || this.map) return;
 
-      // Wait for Google Maps bootstrap
       if (typeof google === 'undefined' || !google.maps?.importLibrary) {
         if (this._retryCount < 50) {
           this._retryCount++;
@@ -205,7 +314,6 @@ export function mapSearchComponent() {
         return;
       }
 
-      // Build the overlay class now that google.maps is available
       ensureOverlayClass();
 
       this.map = new google.maps.Map(container, {
@@ -284,7 +392,7 @@ export function mapSearchComponent() {
 
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
-      const params = this.buildQueryParams();
+      const params = filtersToParams(this._getFilters());
 
       params.set('bounds', [
         sw.lat().toFixed(6),
@@ -293,6 +401,8 @@ export function mapSearchComponent() {
         ne.lng().toFixed(6),
       ].join(','));
       params.set('per_page', '250');
+      // Remove paged for map (no pagination)
+      params.delete('paged');
 
       try {
         const url = bmnPageData.propertiesApiUrl + '?' + params.toString();
@@ -325,17 +435,15 @@ export function mapSearchComponent() {
         activeInfoWindow = null;
       }
 
-      // Remove old overlays
       overlayMap.forEach((overlay) => overlay.remove());
       overlayMap.clear();
 
-      // Limit pins
       const toRender = this.listings.slice(0, MAX_PINS);
 
       toRender.forEach((listing: PropertyListing) => {
         if (!listing.latitude || !listing.longitude) return;
 
-        const priceLabel = this.formatPrice(listing.price);
+        const priceLabel = formatPrice(listing.price);
         const position = new google.maps.LatLng(
           Number(listing.latitude),
           Number(listing.longitude),
@@ -358,7 +466,7 @@ export function mapSearchComponent() {
       if (activeInfoWindow) activeInfoWindow.close();
 
       const photoHtml = listing.main_photo_url
-        ? `<img src="${listing.main_photo_url}" alt="${this.escapeHtml(listing.address)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px 12px 0 0;display:block;">`
+        ? `<img src="${listing.main_photo_url}" alt="${escapeHtml(listing.address)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px 12px 0 0;display:block;">`
         : '';
 
       const detailParts: string[] = [];
@@ -366,13 +474,27 @@ export function mapSearchComponent() {
       if (listing.baths) detailParts.push(listing.baths + ' ba');
       if (listing.sqft) detailParts.push(Number(listing.sqft).toLocaleString() + ' sqft');
 
+      // Status badge
+      const statusColors: Record<string, string> = {
+        Active: '#16a34a',
+        Pending: '#ca8a04',
+        'Active Under Contract': '#ca8a04',
+        Closed: '#dc2626',
+        Sold: '#dc2626',
+      };
+      const statusColor = statusColors[listing.status] || '#6b7280';
+      const statusBadge = listing.status && listing.status !== 'Active'
+        ? `<span style="display:inline-block;font-size:11px;font-weight:600;color:${statusColor};margin-top:4px;">${escapeHtml(listing.status)}</span>`
+        : '';
+
       const infoContent = `
-        <a href="${this.getPropertyUrl(listing.listing_id)}" style="text-decoration:none;color:inherit;display:block;width:280px;">
+        <a href="${getPropertyUrl(listing.listing_id)}" style="text-decoration:none;color:inherit;display:block;width:280px;">
           ${photoHtml}
           <div style="padding:14px;">
             <div style="font-weight:700;font-size:20px;color:#0891B2;">${priceLabel}</div>
-            <div style="font-weight:600;font-size:14px;margin-top:6px;color:#111;">${this.escapeHtml(listing.address)}</div>
-            <div style="font-size:13px;color:#6b7280;margin-top:2px;">${this.escapeHtml(listing.city)}, ${this.escapeHtml(listing.state)} ${this.escapeHtml(listing.zip)}</div>
+            ${statusBadge}
+            <div style="font-weight:600;font-size:14px;margin-top:6px;color:#111;">${escapeHtml(listing.address)}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(listing.city)}, ${escapeHtml(listing.state)} ${escapeHtml(listing.zip)}</div>
             ${detailParts.length ? `<div style="font-size:13px;color:#6b7280;margin-top:8px;">${detailParts.join(' &middot; ')}</div>` : ''}
             <div style="margin-top:10px;padding:8px 16px;background:linear-gradient(135deg,#0891B2,#0E7490);color:white;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">View Details</div>
           </div>
@@ -389,40 +511,6 @@ export function mapSearchComponent() {
 
       const card = document.querySelector(`[data-listing-id="${listing.listing_id}"]`);
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    },
-
-    buildQueryParams(): URLSearchParams {
-      const params = new URLSearchParams();
-      if (this.city) params.set('city', this.city);
-      if (this.neighborhood) params.set('neighborhood', this.neighborhood);
-      if (this.min_price) params.set('min_price', this.min_price);
-      if (this.max_price) params.set('max_price', this.max_price);
-      if (this.beds) params.set('beds', this.beds);
-      if (this.baths) params.set('baths', this.baths);
-      if (this.property_type.length) params.set('property_type', this.property_type.join(','));
-      if (this.status.length) params.set('status', this.status.join(','));
-      if (this.school_grade) params.set('school_grade', this.school_grade);
-      if (this.price_reduced) params.set('price_reduced', this.price_reduced);
-      if (this.new_listing_days) params.set('new_listing_days', this.new_listing_days);
-      if (this.sort && this.sort !== 'newest') params.set('sort', this.sort);
-      return params;
-    },
-
-    formatPrice(price: number): string {
-      if (!price) return '';
-      if (price >= 1000000) return '$' + (price / 1000000).toFixed(2) + 'M';
-      if (price >= 1000) return '$' + Math.round(price / 1000) + 'K';
-      return '$' + price.toLocaleString();
-    },
-
-    escapeHtml(text: string): string {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
-    },
-
-    getPropertyUrl(listingId: string): string {
-      return bmnTheme.homeUrl + 'property/' + listingId + '/';
     },
 
     highlightMarker(listingId: string) {
@@ -449,42 +537,51 @@ export function mapSearchComponent() {
         const listing = this.listings.find((l: PropertyListing) => l.listing_id === listingId);
         if (listing) {
           this.map.panTo(new google.maps.LatLng(Number(listing.latitude), Number(listing.longitude)));
-          this.onPinClick(listing, this.formatPrice(listing.price));
+          this.onPinClick(listing, formatPrice(listing.price));
         }
       }
     },
 
     submitFilters() {
       this.mobileFiltersOpen = false;
+      this.moreFiltersOpen = false;
       this.fetchProperties();
     },
 
     resetFilters() {
-      this.city = '';
-      this.neighborhood = '';
-      this.min_price = '';
-      this.max_price = '';
-      this.beds = '';
-      this.baths = '';
-      this.property_type = [];
-      this.status = ['Active'];
-      this.school_grade = '';
-      this.price_reduced = '';
-      this.new_listing_days = '';
-      this.sort = 'newest';
+      const defaults = createFilterState();
+      this._setFilters(defaults);
       this.submitFilters();
     },
 
     toggleStatus(value: string) {
-      const idx = this.status.indexOf(value);
-      if (idx >= 0) this.status.splice(idx, 1);
-      else this.status.push(value);
+      this.status = toggleArrayValue(this.status, value);
     },
 
     togglePropertyType(value: string) {
-      const idx = this.property_type.indexOf(value);
-      if (idx >= 0) this.property_type.splice(idx, 1);
-      else this.property_type.push(value);
+      this.property_type = toggleArrayValue(this.property_type, value);
+    },
+
+    get activeChips(): FilterChip[] {
+      return getActiveChips(this._getFilters());
+    },
+
+    removeChip(chip: FilterChip) {
+      const updated = engineRemoveChip(this._getFilters(), chip);
+      this._setFilters(updated);
+      this.submitFilters();
+    },
+
+    /** Build URL to list search preserving current filters */
+    getListSearchUrl(): string {
+      const qs = filtersToParams(this._getFilters()).toString();
+      return bmnTheme.searchUrl + (qs ? '?' + qs : '');
+    },
+
+    /** Build URL to map search preserving current filters */
+    getMapSearchUrl(): string {
+      const qs = filtersToParams(this._getFilters()).toString();
+      return bmnTheme.mapSearchUrl + (qs ? '?' + qs : '');
     },
 
     get totalLabel(): string {

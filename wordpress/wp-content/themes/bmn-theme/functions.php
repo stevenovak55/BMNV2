@@ -137,7 +137,9 @@ function bmn_enqueue_assets() {
         'searchUrl'       => esc_url_raw(bmn_get_search_url()),
         'dashboardUrl'    => esc_url_raw(bmn_get_dashboard_url()),
         'loginUrl'        => esc_url_raw(home_url('/login/')),
-        'mapSearchUrl'    => esc_url_raw(home_url('/map-search/')),
+        'mapSearchUrl'        => esc_url_raw(home_url('/map-search/')),
+        'favoritesApiUrl'     => esc_url_raw(rest_url('bmn/v1/favorites')),
+        'savedSearchesApiUrl' => esc_url_raw(rest_url('bmn/v1/saved-searches')),
     ));
 }
 add_action('wp_enqueue_scripts', 'bmn_enqueue_assets');

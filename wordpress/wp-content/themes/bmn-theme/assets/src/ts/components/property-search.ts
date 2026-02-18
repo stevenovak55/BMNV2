@@ -1,46 +1,40 @@
 /**
  * Property Search Filter State (Alpine.js component)
  *
- * Manages search filter state, HTMX-powered partial rendering,
- * URL history updates, and pagination.
+ * Thin Alpine wrapper delegating to filter-engine.
+ * Manages HTMX-powered partial rendering, URL history, and pagination.
+ *
+ * @version 3.0.0
  */
 
-declare const bmnPageData: {
-  propertiesApiUrl: string;
-  schoolsApiUrl: string;
-  propertyTypes: string[];
-};
+import {
+  type SearchFilters,
+  createFilterState,
+  filtersToParams,
+  filtersFromParams,
+  filtersToUrl,
+  toggleArrayValue,
+  getActiveChips,
+  removeChip as engineRemoveChip,
+  hasActiveFilters,
+  type FilterChip,
+} from '../lib/filter-engine';
+import { favStore } from '../lib/favorites-store';
 
 declare const bmnTheme: {
   searchUrl: string;
+  mapSearchUrl: string;
+  homeUrl: string;
 };
 
-interface FilterState {
-  city: string;
-  neighborhood: string;
-  address: string;
-  street: string;
-  min_price: string;
-  max_price: string;
-  beds: string;
-  baths: string;
-  property_type: string[];
-  status: string[];
-  school_grade: string;
-  price_reduced: string;
-  new_listing_days: string;
-  sort: string;
-  page: number;
-}
-
-interface ServerFilters extends Partial<FilterState> {
+interface ServerFilters extends Partial<SearchFilters> {
   total?: number;
   pages?: number;
 }
 
 export function propertySearchComponent(serverFilters: ServerFilters = {}) {
   return {
-    // Filter state
+    // Filter state (flat properties for Alpine template binding)
     city: serverFilters.city || '',
     neighborhood: serverFilters.neighborhood || '',
     address: serverFilters.address || '',
@@ -56,6 +50,20 @@ export function propertySearchComponent(serverFilters: ServerFilters = {}) {
     new_listing_days: serverFilters.new_listing_days || '',
     sort: serverFilters.sort || 'newest',
 
+    // Advanced filters
+    sqft_min: serverFilters.sqft_min || '',
+    sqft_max: serverFilters.sqft_max || '',
+    lot_size_min: serverFilters.lot_size_min || '',
+    lot_size_max: serverFilters.lot_size_max || '',
+    year_built_min: serverFilters.year_built_min || '',
+    year_built_max: serverFilters.year_built_max || '',
+    max_dom: serverFilters.max_dom || '',
+    garage: serverFilters.garage || '',
+    virtual_tour: serverFilters.virtual_tour || '',
+    fireplace: serverFilters.fireplace || '',
+    open_house: serverFilters.open_house || '',
+    exclusive: serverFilters.exclusive || '',
+
     // Pagination state
     page: serverFilters.page || 1,
     total: serverFilters.total || 0,
@@ -64,93 +72,110 @@ export function propertySearchComponent(serverFilters: ServerFilters = {}) {
     // UI state
     loading: false,
     mobileFiltersOpen: false,
+    moreFiltersOpen: false,
+    saveSearchOpen: false,
+
+    // Favorites store
+    favStore,
 
     init() {
-      // Listen for browser back/forward
       window.addEventListener('popstate', () => {
         this.loadFromUrl();
         this.submitFilters(false);
       });
     },
 
-    /**
-     * Build query string from current filter state
-     */
-    buildQueryString(): string {
-      const params = new URLSearchParams();
-
-      if (this.city) params.set('city', this.city);
-      if (this.neighborhood) params.set('neighborhood', this.neighborhood);
-      if (this.address) params.set('address', this.address);
-      if (this.street) params.set('street', this.street);
-      if (this.min_price) params.set('min_price', this.min_price);
-      if (this.max_price) params.set('max_price', this.max_price);
-      if (this.beds) params.set('beds', this.beds);
-      if (this.baths) params.set('baths', this.baths);
-      if (this.property_type.length) params.set('property_type', this.property_type.join(','));
-      if (this.status.length) params.set('status', this.status.join(','));
-      if (this.school_grade) params.set('school_grade', this.school_grade);
-      if (this.price_reduced) params.set('price_reduced', this.price_reduced);
-      if (this.new_listing_days) params.set('new_listing_days', this.new_listing_days);
-      if (this.sort && this.sort !== 'newest') params.set('sort', this.sort);
-      if (this.page > 1) params.set('paged', String(this.page));
-
-      return params.toString();
+    /** Snapshot current flat state → SearchFilters object */
+    _getFilters(): SearchFilters {
+      return {
+        city: this.city,
+        neighborhood: this.neighborhood,
+        address: this.address,
+        street: this.street,
+        min_price: this.min_price,
+        max_price: this.max_price,
+        beds: this.beds,
+        baths: this.baths,
+        property_type: [...this.property_type],
+        status: [...this.status],
+        school_grade: this.school_grade,
+        price_reduced: this.price_reduced,
+        new_listing_days: this.new_listing_days,
+        sort: this.sort,
+        page: this.page,
+        sqft_min: this.sqft_min,
+        sqft_max: this.sqft_max,
+        lot_size_min: this.lot_size_min,
+        lot_size_max: this.lot_size_max,
+        year_built_min: this.year_built_min,
+        year_built_max: this.year_built_max,
+        max_dom: this.max_dom,
+        garage: this.garage,
+        virtual_tour: this.virtual_tour,
+        fireplace: this.fireplace,
+        open_house: this.open_house,
+        exclusive: this.exclusive,
+      };
     },
 
-    /**
-     * Load filter state from current URL
-     */
+    /** Apply a SearchFilters object back to flat state */
+    _setFilters(f: SearchFilters) {
+      this.city = f.city;
+      this.neighborhood = f.neighborhood;
+      this.address = f.address;
+      this.street = f.street;
+      this.min_price = f.min_price;
+      this.max_price = f.max_price;
+      this.beds = f.beds;
+      this.baths = f.baths;
+      this.property_type = [...f.property_type];
+      this.status = [...f.status];
+      this.school_grade = f.school_grade;
+      this.price_reduced = f.price_reduced;
+      this.new_listing_days = f.new_listing_days;
+      this.sort = f.sort;
+      this.page = f.page;
+      this.sqft_min = f.sqft_min;
+      this.sqft_max = f.sqft_max;
+      this.lot_size_min = f.lot_size_min;
+      this.lot_size_max = f.lot_size_max;
+      this.year_built_min = f.year_built_min;
+      this.year_built_max = f.year_built_max;
+      this.max_dom = f.max_dom;
+      this.garage = f.garage;
+      this.virtual_tour = f.virtual_tour;
+      this.fireplace = f.fireplace;
+      this.open_house = f.open_house;
+      this.exclusive = f.exclusive;
+    },
+
+    buildQueryString(): string {
+      return filtersToParams(this._getFilters()).toString();
+    },
+
     loadFromUrl() {
       const params = new URLSearchParams(window.location.search);
-      this.city = params.get('city') || '';
-      this.neighborhood = params.get('neighborhood') || '';
-      this.address = params.get('address') || '';
-      this.street = params.get('street') || '';
-      this.min_price = params.get('min_price') || '';
-      this.max_price = params.get('max_price') || '';
-      this.beds = params.get('beds') || '';
-      this.baths = params.get('baths') || '';
-      this.property_type = params.get('property_type')?.split(',').filter(Boolean) || [];
-      this.status = params.get('status')?.split(',').filter(Boolean) || ['Active'];
-      this.school_grade = params.get('school_grade') || '';
-      this.price_reduced = params.get('price_reduced') || '';
-      this.new_listing_days = params.get('new_listing_days') || '';
-      this.sort = params.get('sort') || 'newest';
-      this.page = parseInt(params.get('paged') || '1', 10);
+      const f = filtersFromParams(params);
+      this._setFilters(f);
     },
 
-    /**
-     * Submit filters - resets to page 1 and fetches results via HTMX
-     */
     submitFilters(pushState = true) {
       this.page = 1;
       this.fetchResults(pushState);
     },
 
-    /**
-     * Go to specific page
-     */
     goToPage(n: number) {
       this.page = n;
       this.fetchResults(true);
-
-      // Scroll to top of results
-      const resultsEl = document.getElementById('results-grid');
-      if (resultsEl) {
-        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      const el = document.getElementById('results-grid');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
 
-    /**
-     * Fetch results via HTMX partial rendering
-     */
     fetchResults(pushState = true) {
       this.loading = true;
       const qs = this.buildQueryString();
       const pageUrl = bmnTheme.searchUrl + (qs ? '?' + qs : '');
 
-      // Use HTMX to fetch the results-grid partial
       const htmx = window.htmx;
       if (htmx) {
         htmx.ajax('GET', pageUrl, {
@@ -161,77 +186,60 @@ export function propertySearchComponent(serverFilters: ServerFilters = {}) {
         });
       }
 
-      // Update browser URL
       if (pushState) {
         history.pushState(null, '', pageUrl);
       }
 
-      // Close mobile filters if open
       this.mobileFiltersOpen = false;
     },
 
-    /**
-     * Reset all filters to defaults
-     */
     resetFilters() {
-      this.city = '';
-      this.neighborhood = '';
-      this.address = '';
-      this.street = '';
-      this.min_price = '';
-      this.max_price = '';
-      this.beds = '';
-      this.baths = '';
-      this.property_type = [];
-      this.status = ['Active'];
-      this.school_grade = '';
-      this.price_reduced = '';
-      this.new_listing_days = '';
-      this.sort = 'newest';
+      const defaults = createFilterState();
+      this._setFilters(defaults);
       this.submitFilters();
     },
 
-    /**
-     * Toggle a status value in the status array
-     */
     toggleStatus(value: string) {
-      const idx = this.status.indexOf(value);
-      if (idx >= 0) {
-        this.status.splice(idx, 1);
-      } else {
-        this.status.push(value);
-      }
+      this.status = toggleArrayValue(this.status, value);
     },
 
-    /**
-     * Toggle a property type value in the property_type array
-     */
     togglePropertyType(value: string) {
-      const idx = this.property_type.indexOf(value);
-      if (idx >= 0) {
-        this.property_type.splice(idx, 1);
-      } else {
-        this.property_type.push(value);
-      }
+      this.property_type = toggleArrayValue(this.property_type, value);
     },
 
-    /**
-     * Computed: total results label
-     */
+    get activeChips(): FilterChip[] {
+      return getActiveChips(this._getFilters());
+    },
+
+    removeChip(chip: FilterChip) {
+      const updated = engineRemoveChip(this._getFilters(), chip);
+      this._setFilters(updated);
+      this.submitFilters();
+    },
+
     get totalLabel(): string {
       if (this.total === 0) return 'No properties found';
       if (this.total === 1) return '1 property found';
       return `${this.total.toLocaleString()} properties found`;
     },
 
-    /**
-     * Sync server-rendered pagination values into Alpine state
-     */
     syncFromServer(total: number, pages: number, currentPage: number) {
       this.total = total;
       this.pages = pages;
       this.page = currentPage;
       this.loading = false;
+    },
+
+    /** Build URL to map search preserving current filters */
+    getMapSearchUrl(): string {
+      const qs = this.buildQueryString();
+      return bmnTheme.mapSearchUrl + (qs ? '?' + qs : '');
+    },
+
+    /** Build URL to list search preserving current filters */
+    getListSearchUrl(): string {
+      const qs = this.buildQueryString();
+      return bmnTheme.searchUrl + (qs ? '?' + qs : '');
     },
   };
 }
