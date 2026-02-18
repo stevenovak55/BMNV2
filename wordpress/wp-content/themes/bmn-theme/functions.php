@@ -137,6 +137,7 @@ function bmn_enqueue_assets() {
         'searchUrl'       => esc_url_raw(bmn_get_search_url()),
         'dashboardUrl'    => esc_url_raw(bmn_get_dashboard_url()),
         'loginUrl'        => esc_url_raw(home_url('/login/')),
+        'mapSearchUrl'    => esc_url_raw(home_url('/map-search/')),
     ));
 }
 add_action('wp_enqueue_scripts', 'bmn_enqueue_assets');

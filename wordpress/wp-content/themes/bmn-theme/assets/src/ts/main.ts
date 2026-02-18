@@ -10,6 +10,7 @@ import { propertySearchComponent } from './components/property-search';
 import { photoGalleryComponent } from './components/gallery';
 import { authFormComponent } from './components/auth';
 import { dashboardAppComponent } from './components/dashboard';
+import { mapSearchComponent } from './components/map-search';
 import { initForms } from './components/forms';
 
 // Register Alpine.js data components
@@ -21,6 +22,7 @@ Alpine.data('filterState', propertySearchComponent);
 Alpine.data('photoGallery', photoGalleryComponent);
 Alpine.data('authForm', authFormComponent);
 Alpine.data('dashboardApp', dashboardAppComponent);
+Alpine.data('mapSearch', mapSearchComponent);
 
 // Make htmx available globally for inline attributes
 declare global {

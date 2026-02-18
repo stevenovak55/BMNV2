@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "types": ["alpinejs"]
+    "types": ["alpinejs", "google.maps"]
   },
   "include": ["assets/src/**/*.ts"],
   "exclude": ["node_modules", "assets/dist"]

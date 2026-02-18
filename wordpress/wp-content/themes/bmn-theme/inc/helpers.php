@@ -234,6 +234,15 @@ function bmn_get_dashboard_url(string $tab = ''): string {
 }
 
 /**
+ * Get map search page URL
+ *
+ * @return string
+ */
+function bmn_get_map_search_url(): string {
+    return home_url('/map-search/');
+}
+
+/**
  * Helper to render a homepage section template
  *
  * @param string $section_id Section identifier

@@ -19,26 +19,36 @@
 | 11b | Property Search + Detail | Complete | 2026-02-17 | 2026-02-17 | 8 integration | - | Search page, detail page, HTMX partials, photo gallery, 15 templates |
 | 11c | Remaining Theme Pages | Complete | 2026-02-17 | 2026-02-17 | - | - | About, Contact, Sign Up, Login, Dashboard. JWT auth, 14 new files |
 | 11d | QA + Performance | Complete | 2026-02-17 | 2026-02-17 | - | - | Visual QA, auth flow E2E, 3 bug fixes, API benchmarking (13-77ms) |
-| 11e | Map Search | Not Started | - | - | - | - | Split-screen map + results, Leaflet/Mapbox, viewport filtering |
+| 11e | Map Search | Complete | 2026-02-17 | 2026-02-17 | - | - | Google Maps split-screen, custom OverlayView price pins, bounding box queries, v1-style layout |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 11e - Map Search (NEXT)
+## Current Phase: 12 - iOS App (SwiftUI Rebuild) - NOT STARTED
 
-### Objectives
-- [ ] Build split-screen map search page (interactive map left, property list right)
-- [ ] Integrate map library (Leaflet or Mapbox) with Vite build
-- [ ] Property pins with price labels from lat/lng coordinates
-- [ ] Map viewport → bounding box filter (update results on pan/zoom)
-- [ ] Click pin → property card popup
-- [ ] Click result card → highlight/center pin on map
-- [ ] Consider lightweight `/properties/pins` endpoint for 500+ markers
+---
 
-### Performance Baseline (from Session 16 benchmarking)
-- Geo bounding box queries: 13-76ms (cold), 13-15ms (warm)
-- 250 results payload: 261 KB
-- `per_page` capped at 250 — may need pins-only endpoint for dense areas
-- 4,040 active listings with lat/lng coordinates
+## Previous Phase: 11e - Map Search - COMPLETE
+
+### What Was Done
+1. **Split-screen map search page** — Google Maps fills left side, fixed 452px results sidebar on right (matching v1)
+2. **Custom OverlayView price pins** — Replaced AdvancedMarkerElement (required Cloud Console mapId) with custom `PriceMarkerOverlay` extending `google.maps.OverlayView`. Teal gradient pins ($XXK / $X.XXM) matching v1's design.
+3. **Bounding box queries** — Map idle → extract viewport bounds → API call with `bounds=south,west,north,east`
+4. **Property card popup** — Click pin → InfoWindow with photo, price, address, beds/baths/sqft, "View Details" button
+5. **Card ↔ pin interaction** — Hover card → highlight pin (red), click card → pan to pin + scroll sidebar
+6. **Draggable resize handle** — 6px handle between map and sidebar, min 280px, max 80% viewport
+7. **Viewport-locked layout** — `#page { height: 100vh; overflow: hidden }`, no footer (like v1)
+8. **Filters** — Collapsible panel with price range, beds, baths, property type, status, price reduced
+9. **Mobile** — Fixed bottom pill toggle with backdrop blur (matching v1), map/list toggle with SVG icons
+10. **API key** — Reused v1 Google Maps key, stored in wp_options as `bmn_google_maps_api_key`
+
+### Files Created/Modified
+- `page-map-search.php` (new) — Split-screen template with viewport lock, no footer
+- `assets/src/ts/components/map-search.ts` (new) — Alpine.js + Google Maps OverlayView component
+- `assets/src/ts/main.ts` — Added mapSearch import
+- `functions.php` — Added mapSearchUrl
+- `inc/helpers.php` — Added bmn_get_map_search_url()
+- `tsconfig.json` — Added google.maps types
+- `assets/src/scss/main.scss` — Teal gradient pin styles, resize handle styles, InfoWindow overrides
 
 ---
 

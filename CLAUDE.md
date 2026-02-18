@@ -3,10 +3,10 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 11e (Map Search) - NOT STARTED
-**Status:** QA complete (Session 16). All 5 pages verified, auth flow E2E tested, 3 bugs fixed, API benchmarked (13-77ms). Ready for map search.
+## Current Phase: 11e (Map Search) - COMPLETE
+**Status:** Map search page polished (Session 18). Split-screen layout with Google Maps + Alpine.js. Custom OverlayView price pins (replaced AdvancedMarkerElement which required Cloud Console mapId). Teal gradient pins matching v1. 452px sidebar, draggable resize handle, viewport-locked height, mobile bottom pill toggle.
 **Previous Phase:** 11d (QA + Performance Benchmarking) - 3 bug fixes, all 1,643 tests pass
-**Next Phase:** Split-screen map search (interactive map left half, property list right half)
+**Next Phase:** Phase 12 (iOS SwiftUI rebuild)
 
 ## Critical Rules (NEVER VIOLATE)
 
@@ -151,4 +151,4 @@ The platform `AuthMiddleware` fires the `bmn_is_token_revoked` filter after JWT 
 | Field: status | `standard_status` | `status` |
 | Search response | `{success, data: {listings, total, total_pages}}` | `{success, data: [...], meta: {total, total_pages}}` |
 
-*Last updated: 2026-02-17 (Session 16 - Phase 11d QA + Performance Benchmarking)*
+*Last updated: 2026-02-17 (Session 18 - Phase 11e Map Search QA + Polish)*
