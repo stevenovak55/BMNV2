@@ -18,10 +18,47 @@
 | 11a | Theme Foundation | Complete | 2026-02-17 | 2026-02-17 | - | - | Vite + Tailwind + Alpine.js + HTMX, core layout, 16 homepage sections |
 | 11b | Property Search + Detail | Complete | 2026-02-17 | 2026-02-17 | 8 integration | - | Search page, detail page, HTMX partials, photo gallery, 15 templates |
 | 11c | Remaining Theme Pages | Complete | 2026-02-17 | 2026-02-17 | - | - | About, Contact, Sign Up, Login, Dashboard. JWT auth, 14 new files |
+| 11d | QA + Performance | Complete | 2026-02-17 | 2026-02-17 | - | - | Visual QA, auth flow E2E, 3 bug fixes, API benchmarking (13-77ms) |
+| 11e | Map Search | Not Started | - | - | - | - | Split-screen map + results, Leaflet/Mapbox, viewport filtering |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 11c - Remaining Theme Pages - COMPLETE
+## Current Phase: 11e - Map Search (NEXT)
+
+### Objectives
+- [ ] Build split-screen map search page (interactive map left, property list right)
+- [ ] Integrate map library (Leaflet or Mapbox) with Vite build
+- [ ] Property pins with price labels from lat/lng coordinates
+- [ ] Map viewport → bounding box filter (update results on pan/zoom)
+- [ ] Click pin → property card popup
+- [ ] Click result card → highlight/center pin on map
+- [ ] Consider lightweight `/properties/pins` endpoint for 500+ markers
+
+### Performance Baseline (from Session 16 benchmarking)
+- Geo bounding box queries: 13-76ms (cold), 13-15ms (warm)
+- 250 results payload: 261 KB
+- `per_page` capped at 250 — may need pins-only endpoint for dense areas
+- 4,040 active listings with lat/lng coordinates
+
+---
+
+## Previous Phase: 11d - QA + Performance Benchmarking - COMPLETE
+
+### What Was Done
+1. **Visual QA** — All 5 Phase 11c pages verified (About, Contact, Sign Up, Login, Dashboard)
+2. **Full auth flow E2E** — Register → JWT → /auth/me → favorites → login → logout → token revocation → forgot-password
+3. **SVG double-M bug** — Fixed 6 instances across 5 templates where `d="M..."` was prepended to icon data already starting with `M`
+4. **SMTP from address** — Added `wp_mail_from`/`wp_mail_from_name` filters to bmn-smtp.php (noreply@bmnboston.com)
+5. **Contact form subject** — Handler now uses subject dropdown field, checks wp_mail() return value
+6. **API benchmarking** — All queries 13-77ms, geo bounding box with 200+ pins performs well
+7. **All 1,643 tests pass** — Zero regressions
+
+### Commits
+- `b386e41` — fix: SVG double-M paths, SMTP from address, and contact form subject handling
+
+---
+
+## Previous Phase: 11c - Remaining Theme Pages - COMPLETE
 
 ### Objectives
 - [x] Add infrastructure: `bmn_get_dashboard_url()` helper, `authApiUrl`/`dashboardUrl`/`loginUrl` to localized script data
@@ -59,13 +96,6 @@
 - `inc/helpers.php` — Added `bmn_get_dashboard_url()`
 - `assets/src/ts/main.ts` — Registered `authForm` and `dashboardApp` components
 - `header.php` — JWT auth detection via Alpine.js, avatar from localStorage
-
-### Key Architecture Decisions
-1. **JWT auth is fully client-side** — Token stored in `localStorage.bmn_token`, user info in `localStorage.bmn_user`. No WordPress session cookies involved.
-2. **Header uses Alpine.js for auth state** — `x-data` on `<header>` reads localStorage token presence, replacing PHP `is_user_logged_in()` which only works with WP sessions.
-3. **Auth API response mapping** — Login returns `data.access_token` (not `data.token`). User info stored includes `name`, `email`, `avatar_url`.
-4. **Dashboard auth guard** — `dashboardApp.init()` checks for token, redirects to `/login/` if missing. 401 responses also trigger logout + redirect.
-5. **Contact form reuses existing AJAX handler** — `bmn_handle_contact_form` already in functions.php, form POSTs via HTMX.
 
 ### Commits
 - `52eab71` — feat(theme): Phase 11c - About, Contact, Auth, and Dashboard pages
