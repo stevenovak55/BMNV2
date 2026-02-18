@@ -220,6 +220,20 @@ function bmn_get_contact_url(): string {
 }
 
 /**
+ * Get user dashboard URL
+ *
+ * @param string $tab Optional tab hash (favorites, saved-searches, profile)
+ * @return string
+ */
+function bmn_get_dashboard_url(string $tab = ''): string {
+    $url = home_url('/my-dashboard/');
+    if ($tab) {
+        $url .= '#' . $tab;
+    }
+    return $url;
+}
+
+/**
  * Helper to render a homepage section template
  *
  * @param string $section_id Section identifier

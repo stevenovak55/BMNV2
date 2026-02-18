@@ -129,11 +129,14 @@ function bmn_enqueue_assets() {
 
     // Localize script with REST API URLs for client-side use
     wp_localize_script('bmn-main', 'bmnTheme', array(
-        'restUrl'        => esc_url_raw(rest_url()),
+        'restUrl'         => esc_url_raw(rest_url()),
         'autocompleteUrl' => esc_url_raw(rest_url('bmn/v1/properties/autocomplete')),
-        'nonce'          => '', // Empty - public endpoints don't need nonces
-        'homeUrl'        => esc_url_raw(home_url('/')),
-        'searchUrl'      => esc_url_raw(bmn_get_search_url()),
+        'authApiUrl'      => esc_url_raw(rest_url('bmn/v1/auth')),
+        'nonce'           => '', // Empty - public endpoints don't need nonces
+        'homeUrl'         => esc_url_raw(home_url('/')),
+        'searchUrl'       => esc_url_raw(bmn_get_search_url()),
+        'dashboardUrl'    => esc_url_raw(bmn_get_dashboard_url()),
+        'loginUrl'        => esc_url_raw(home_url('/login/')),
     ));
 }
 add_action('wp_enqueue_scripts', 'bmn_enqueue_assets');

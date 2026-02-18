@@ -125,7 +125,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                             </div>
                         <?php else : ?>
                             <div class="flex items-center gap-2">
-                                <a href="<?php echo esc_url(wp_login_url()); ?>" class="text-sm font-medium text-gray-600 hover:text-navy-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                <a href="<?php echo esc_url(home_url('/login/')); ?>" class="text-sm font-medium text-gray-600 hover:text-navy-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
                                     Log In
                                 </a>
                                 <a href="<?php echo esc_url(home_url('/signup/')); ?>" class="btn-primary text-sm !py-2 !px-4">
@@ -231,7 +231,7 @@ $phone_number = get_theme_mod('bne_phone_number', '(617) 955-2224');
                     </div>
                 <?php else : ?>
                     <div class="flex gap-2">
-                        <a href="<?php echo esc_url(wp_login_url()); ?>" class="flex-1 text-center px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <a href="<?php echo esc_url(home_url('/login/')); ?>" class="flex-1 text-center px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                             Log In
                         </a>
                         <a href="<?php echo esc_url(home_url('/signup/')); ?>" class="flex-1 text-center btn-primary text-sm !py-2.5">
