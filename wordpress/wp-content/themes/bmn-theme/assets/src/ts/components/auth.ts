@@ -30,8 +30,8 @@ interface AuthFormData {
 
 export function authFormComponent(
   initialMode: 'login' | 'register' = 'login'
-): () => AuthFormData {
-  return () => ({
+): AuthFormData {
+  return {
     mode: initialMode,
     firstName: '',
     lastName: '',
@@ -142,5 +142,5 @@ export function authFormComponent(
         this.loading = false;
       }
     },
-  });
+  };
 }

@@ -74,8 +74,8 @@ interface DashboardData {
   formatFilters(filters: Record<string, string>): string;
 }
 
-export function dashboardAppComponent(): () => DashboardData {
-  return () => ({
+export function dashboardAppComponent(): DashboardData {
+  return {
     activeTab: 'favorites',
     loading: false,
     favorites: [],
@@ -321,5 +321,5 @@ export function dashboardAppComponent(): () => DashboardData {
       if (filters.baths) parts.push(`${filters.baths}+ baths`);
       return parts.join(' · ') || 'All properties';
     },
-  });
+  };
 }
