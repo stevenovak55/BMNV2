@@ -17,10 +17,66 @@
 | 10 | Exclusive Listings | Complete | 2026-02-17 | 2026-02-17 | 169/169 | ~85% | Agent-created listings, photo management, status lifecycle, 11 REST endpoints, 2 tables |
 | 11a | Theme Foundation | Complete | 2026-02-17 | 2026-02-17 | - | - | Vite + Tailwind + Alpine.js + HTMX, core layout, 16 homepage sections |
 | 11b | Property Search + Detail | Complete | 2026-02-17 | 2026-02-17 | 8 integration | - | Search page, detail page, HTMX partials, photo gallery, 15 templates |
+| 11c | Remaining Theme Pages | Complete | 2026-02-17 | 2026-02-17 | - | - | About, Contact, Sign Up, Login, Dashboard. JWT auth, 14 new files |
 | 12 | iOS App | Not Started | - | - | - | - | SwiftUI rebuild |
 | 13 | Migration and Cutover | Not Started | - | - | - | - | Data migration, DNS |
 
-## Current Phase: 11b - Property Search + Detail Pages - COMPLETE
+## Current Phase: 11c - Remaining Theme Pages - COMPLETE
+
+### Objectives
+- [x] Add infrastructure: `bmn_get_dashboard_url()` helper, `authApiUrl`/`dashboardUrl`/`loginUrl` to localized script data
+- [x] Create `auth.ts` Alpine.js component (login/register/forgot-password, JWT storage, field validation)
+- [x] Create `dashboard.ts` Alpine.js component (tabs, favorites CRUD, saved searches, profile, auth guard)
+- [x] Create About page with agent hero, stats, value propositions, bio, brokerage CTA
+- [x] Create Contact page with HTMX form and agent info sidebar
+- [x] Create Sign Up page calling `POST /bmn/v1/auth/register`
+- [x] Create Login page calling `POST /bmn/v1/auth/login` with forgot-password flow
+- [x] Create User Dashboard with favorites, saved searches, and profile/settings tabs
+- [x] Update header to use Alpine.js JWT auth detection (localStorage, not PHP session)
+- [x] Restore Gravatar profile picture from `avatar_url` stored in `bmn_user` localStorage
+- [x] Create WordPress pages via WP-CLI (`/about/`, `/contact/`, `/signup/`, `/login/`, `/my-dashboard/`)
+
+### Deliverables
+
+**New files (14):**
+- `page-about.php` — About page (hero, stats, value props, bio, brokerage)
+- `page-contact.php` — Contact page (HTMX form + info sidebar)
+- `page-signup.php` — Registration page (Alpine.js authForm)
+- `page-login.php` — Login page (Alpine.js authForm + forgot password)
+- `page-my-dashboard.php` — Dashboard page (Alpine.js dashboardApp)
+- `template-parts/auth/auth-layout.php` — Shared centered card wrapper
+- `template-parts/contact/contact-form.php` — Reusable HTMX contact form
+- `template-parts/contact/contact-info.php` — Agent info sidebar
+- `template-parts/dashboard/dashboard-shell.php` — Tab navigation
+- `template-parts/dashboard/tab-favorites.php` — Favorites grid with remove
+- `template-parts/dashboard/tab-saved-searches.php` — Saved searches list
+- `template-parts/dashboard/tab-profile.php` — Profile, logout, delete account
+- `assets/src/ts/components/auth.ts` — authForm Alpine.js component
+- `assets/src/ts/components/dashboard.ts` — dashboardApp Alpine.js component
+
+**Modified files (4):**
+- `functions.php` — Added `authApiUrl`, `dashboardUrl`, `loginUrl` to `bmnTheme`
+- `inc/helpers.php` — Added `bmn_get_dashboard_url()`
+- `assets/src/ts/main.ts` — Registered `authForm` and `dashboardApp` components
+- `header.php` — JWT auth detection via Alpine.js, avatar from localStorage
+
+### Key Architecture Decisions
+1. **JWT auth is fully client-side** — Token stored in `localStorage.bmn_token`, user info in `localStorage.bmn_user`. No WordPress session cookies involved.
+2. **Header uses Alpine.js for auth state** — `x-data` on `<header>` reads localStorage token presence, replacing PHP `is_user_logged_in()` which only works with WP sessions.
+3. **Auth API response mapping** — Login returns `data.access_token` (not `data.token`). User info stored includes `name`, `email`, `avatar_url`.
+4. **Dashboard auth guard** — `dashboardApp.init()` checks for token, redirects to `/login/` if missing. 401 responses also trigger logout + redirect.
+5. **Contact form reuses existing AJAX handler** — `bmn_handle_contact_form` already in functions.php, form POSTs via HTMX.
+
+### Commits
+- `52eab71` — feat(theme): Phase 11c - About, Contact, Auth, and Dashboard pages
+- `a5b4b19` — fix(theme): Fix Alpine.js auth and dashboard components returning nested function
+- `ac98417` — fix(theme): Read access_token from auth API response
+- `3612e44` — fix(theme): Header auth state reads JWT from localStorage
+- `050b09a` — fix(theme): Restore profile picture in header from JWT user data
+
+---
+
+## Previous Phase: 11b - Property Search + Detail Pages - COMPLETE
 
 ### Objectives
 - [x] Create theme helper functions adapted for V2 REST API (`bmn_search_properties`, `bmn_get_property_details`, `bmn_get_property_photos`, `bmn_get_property_price_history`)

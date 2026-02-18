@@ -3,10 +3,10 @@
 ## Project Overview
 Complete rebuild of the BMN Boston real estate platform. New codebase, clean architecture.
 
-## Current Phase: 11b (Property Search + Detail Pages) - COMPLETE
-**Status:** Theme v2.1.0 with property search and detail pages. 15 template files, Vite build, HTMX partials. All 8 integration tests pass on localhost:8082.
-**Previous Phase:** 10 (Exclusive Listings) - 169 tests, 312 assertions, 11 REST endpoints
-**Next Phase:** 11c (Theme polish, remaining pages) or 12 (iOS App)
+## Current Phase: 11c (Remaining Theme Pages) - COMPLETE
+**Status:** Theme v2.2.0 with 5 new pages (About, Contact, Sign Up, Login, Dashboard), 7 template parts, 2 Alpine.js TS components. JWT auth flow end-to-end. 29 theme template files total.
+**Previous Phase:** 11b (Property Search + Detail Pages) - 8 integration tests pass
+**Next Phase:** 12 (iOS App) or 11d (Theme polish / visual QA)
 
 ## Critical Rules (NEVER VIOLATE)
 
