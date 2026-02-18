@@ -104,7 +104,8 @@ get_header();
 ?>
 
 <main id="main" class="flex-1 bg-gray-50"
-      x-data="filterState(<?php echo esc_attr(wp_json_encode($alpine_filters)); ?>)">
+      x-data="filterState(<?php echo esc_attr(wp_json_encode($alpine_filters)); ?>)"
+      @autocomplete:select="handleAutocompleteSelect($event.detail)">
 
     <!-- Filter Bar -->
     <?php get_template_part('template-parts/search/filter-bar', null, array('view' => 'list')); ?>
@@ -133,7 +134,7 @@ get_header();
     </div>
 
     <!-- Save Search Modal -->
-    <div x-data="saveSearchModal" x-show="saveSearchOpen || open" x-cloak>
+    <div x-data="saveSearchModal" x-effect="if (saveSearchOpen) show()" x-show="saveSearchOpen || open" x-cloak>
         <div x-show="saveSearchOpen || open"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"

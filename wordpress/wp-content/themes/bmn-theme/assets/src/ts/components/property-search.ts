@@ -77,8 +77,12 @@ export function propertySearchComponent(serverFilters: ServerFilters = {}) {
 
     // Favorites store
     favStore,
+    _favVersion: 0,
 
     init() {
+      // Track favorites changes for Alpine reactivity
+      favStore.onChange(() => { this._favVersion++; });
+
       window.addEventListener('popstate', () => {
         this.loadFromUrl();
         this.submitFilters(false);
@@ -240,6 +244,27 @@ export function propertySearchComponent(serverFilters: ServerFilters = {}) {
     getListSearchUrl(): string {
       const qs = this.buildQueryString();
       return bmnTheme.searchUrl + (qs ? '?' + qs : '');
+    },
+
+    /** Handle autocomplete selection from dispatch mode */
+    handleAutocompleteSelect(detail: { type: string; value: string; text: string }) {
+      // Clear all location fields, then set the selected one
+      this.city = '';
+      this.neighborhood = '';
+      this.address = '';
+      this.street = '';
+
+      switch (detail.type) {
+        case 'city': this.city = detail.value; break;
+        case 'neighborhood': this.neighborhood = detail.value; break;
+        case 'address': this.address = detail.value; break;
+        case 'street': this.street = detail.value; break;
+        case 'mls_number':
+          window.location.href = `/property/${detail.value}/`;
+          return;
+      }
+
+      this.submitFilters();
     },
   };
 }

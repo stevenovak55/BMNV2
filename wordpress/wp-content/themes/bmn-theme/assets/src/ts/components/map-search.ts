@@ -216,8 +216,12 @@ export function mapSearchComponent() {
 
     // Favorites store
     favStore,
+    _favVersion: 0,
 
     init() {
+      // Track favorites changes for Alpine reactivity
+      favStore.onChange(() => { this._favVersion++; });
+
       // Hydrate from URL params
       this._hydrateFromUrl();
 
@@ -293,6 +297,11 @@ export function mapSearchComponent() {
       this.fireplace = f.fireplace;
       this.open_house = f.open_house;
       this.exclusive = f.exclusive;
+    },
+
+    /** Format price for Alpine template use */
+    formatPrice(price: number): string {
+      return formatPrice(price);
     },
 
     async initMap() {
@@ -591,6 +600,27 @@ export function mapSearchComponent() {
       const showing = this.listings.length;
       if (this.total > showing) return `${showing.toLocaleString()} of ${this.total.toLocaleString()} properties`;
       return `${this.total.toLocaleString()} properties`;
+    },
+
+    /** Handle autocomplete selection from dispatch mode */
+    handleAutocompleteSelect(detail: { type: string; value: string; text: string }) {
+      // Clear all location fields, then set the selected one
+      this.city = '';
+      this.neighborhood = '';
+      this.address = '';
+      this.street = '';
+
+      switch (detail.type) {
+        case 'city': this.city = detail.value; break;
+        case 'neighborhood': this.neighborhood = detail.value; break;
+        case 'address': this.address = detail.value; break;
+        case 'street': this.street = detail.value; break;
+        case 'mls_number':
+          window.location.href = `/property/${detail.value}/`;
+          return;
+      }
+
+      this.submitFilters();
     },
   };
 }

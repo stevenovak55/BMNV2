@@ -112,7 +112,7 @@
          hover:bg-white hover:shadow-md;
 }
 .fav-heart svg {
-  @apply w-4 h-4 transition-colors;
+  @apply w-4 h-4 text-gray-400 transition-colors;
 }
 .fav-heart.is-favorite svg {
   @apply text-red-500 fill-current;

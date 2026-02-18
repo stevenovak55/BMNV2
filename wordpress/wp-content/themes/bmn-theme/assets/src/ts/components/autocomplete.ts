@@ -76,12 +76,9 @@ export function autocompleteComponent() {
       this.query = suggestion.text;
       this.showSuggestions = false;
 
-      // Check if inside a search page (parent has submitFilters)
-      const isInsideSearch = typeof (this as any).$root?.submitFilters === 'function'
-        || typeof (this as any).$dispatch === 'function';
-
-      // Try dispatch mode: update parent filter state directly
-      if (isInsideSearch && typeof (this as any).$dispatch === 'function') {
+      // Dispatch mode: when inside filter-bar on search pages (data-mode="dispatch")
+      const mode = (this as any).$el?.closest('[data-mode]')?.dataset?.mode || 'navigate';
+      if (mode === 'dispatch') {
         (this as any).$dispatch('autocomplete:select', {
           type: suggestion.type,
           value: suggestion.value,

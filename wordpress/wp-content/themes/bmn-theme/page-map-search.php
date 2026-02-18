@@ -28,7 +28,8 @@ get_header();
     }
 </style>
 
-<main id="main" class="flex-1 flex flex-col overflow-hidden" x-data="mapSearch">
+<main id="main" class="flex-1 flex flex-col overflow-hidden" x-data="mapSearch"
+      @autocomplete:select="handleAutocompleteSelect($event.detail)">
 
     <!-- Shared Filter Bar -->
     <?php get_template_part('template-parts/search/filter-bar', null, array('view' => 'map')); ?>
@@ -146,10 +147,10 @@ get_header();
 
                             <!-- Favorite heart -->
                             <button class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/80 shadow-sm hover:bg-white transition-all"
-                                    :class="favStore?.isFavorite(listing.listing_id) ? 'text-red-500' : 'text-gray-400'"
+                                    :class="(_favVersion, favStore?.isFavorite(listing.listing_id)) ? 'text-red-500' : 'text-gray-400'"
                                     @click.prevent.stop="favStore?.toggle(listing.listing_id)">
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
-                                     :fill="favStore?.isFavorite(listing.listing_id) ? 'currentColor' : 'none'">
+                                     :fill="(_favVersion, favStore?.isFavorite(listing.listing_id)) ? 'currentColor' : 'none'">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                                 </svg>
                             </button>
@@ -161,6 +162,37 @@ get_header();
                 <div x-show="!initialLoad && total > listings.length" class="px-4 py-3 bg-gray-50 text-center border-t border-gray-100">
                     <p class="text-xs text-gray-400">Showing <span x-text="listings.length"></span> of <span x-text="total.toLocaleString()"></span>. Zoom in to see more.</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Search Modal -->
+    <div x-data="saveSearchModal" x-effect="if (saveSearchOpen) show()" x-show="saveSearchOpen || open" x-cloak>
+        <div x-show="saveSearchOpen || open"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black/50 z-50"
+             @click="saveSearchOpen = false; close()">
+        </div>
+        <div x-show="saveSearchOpen || open"
+             x-transition
+             class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl p-6 z-50 w-full max-w-md"
+             @click.outside="saveSearchOpen = false; close()">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Save This Search</h3>
+            <input type="text" x-model="name" placeholder="Name your search..."
+                   class="w-full text-sm border-gray-200 rounded-lg focus:border-teal-600 focus:ring-teal-600 mb-3"
+                   @keydown.enter="save(_getFilters())">
+            <p x-show="error" x-text="error" class="text-sm text-red-600 mb-3"></p>
+            <p x-show="success" class="text-sm text-green-600 mb-3">Search saved!</p>
+            <div class="flex gap-3">
+                <button @click="save(_getFilters())" :disabled="saving"
+                        class="btn-search flex-1" x-text="saving ? 'Saving...' : 'Save Search'"></button>
+                <button @click="saveSearchOpen = false; close()"
+                        class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
             </div>
         </div>
     </div>

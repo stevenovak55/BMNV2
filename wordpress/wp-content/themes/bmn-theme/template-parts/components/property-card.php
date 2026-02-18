@@ -84,7 +84,7 @@ $is_new  = $dom_int > 0 && $dom_int < 7;
         <!-- Favorite heart (top-right) -->
         <?php if ($listing_id) : ?>
             <button class="fav-heart"
-                    :class="favStore?.isFavorite('<?php echo esc_js($listing_id); ?>') ? 'is-favorite' : ''"
+                    :class="(_favVersion, favStore?.isFavorite('<?php echo esc_js($listing_id); ?>')) ? 'is-favorite' : ''"
                     @click.prevent.stop="favStore?.toggle('<?php echo esc_js($listing_id); ?>')"
                     title="Save to favorites">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">

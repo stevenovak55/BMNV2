@@ -25,7 +25,7 @@ $current_view   = $args['view'] ?? 'list'; // 'list' or 'map'
     <div class="flex items-center gap-2 px-4 py-2.5 flex-wrap">
 
         <!-- Location Autocomplete -->
-        <div x-data="autocomplete" class="relative flex-shrink-0">
+        <div x-data="autocomplete" data-mode="dispatch" class="relative flex-shrink-0">
             <input type="text"
                    x-model="query"
                    @input.debounce.300ms="fetchSuggestions()"
@@ -56,8 +56,8 @@ $current_view   = $args['view'] ?? 'list'; // 'list' or 'map'
         <div class="w-px h-6 bg-gray-200 flex-shrink-0"></div>
 
         <!-- Price Dropdown -->
-        <div x-data="{ open: false }" class="relative flex-shrink-0">
-            <button @click="open = !open" @click.outside="open = false"
+        <div x-data="{ open: false }" @click.outside="open = false" class="relative flex-shrink-0">
+            <button @click="open = !open"
                     :class="(min_price || max_price) ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 text-gray-700'"
                     class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-lg hover:bg-gray-50 transition-colors">
                 Price
@@ -107,8 +107,8 @@ $current_view   = $args['view'] ?? 'list'; // 'list' or 'map'
         </div>
 
         <!-- Beds/Baths Dropdown -->
-        <div x-data="{ open: false }" class="relative flex-shrink-0">
-            <button @click="open = !open" @click.outside="open = false"
+        <div x-data="{ open: false }" @click.outside="open = false" class="relative flex-shrink-0">
+            <button @click="open = !open"
                     :class="(beds || baths) ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 text-gray-700'"
                     class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-lg hover:bg-gray-50 transition-colors">
                 Beds / Baths
@@ -144,8 +144,8 @@ $current_view   = $args['view'] ?? 'list'; // 'list' or 'map'
         </div>
 
         <!-- Property Type Dropdown -->
-        <div x-data="{ open: false }" class="relative flex-shrink-0">
-            <button @click="open = !open" @click.outside="open = false"
+        <div x-data="{ open: false }" @click.outside="open = false" class="relative flex-shrink-0">
+            <button @click="open = !open"
                     :class="property_type.length ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 text-gray-700'"
                     class="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-lg hover:bg-gray-50 transition-colors">
                 Type
