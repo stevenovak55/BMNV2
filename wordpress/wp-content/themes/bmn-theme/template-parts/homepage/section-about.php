@@ -34,7 +34,7 @@ $agent_name = get_theme_mod('bne_agent_name', 'Steven Novak');
             foreach ($stats as $stat) : ?>
                 <div class="text-center p-6 bg-navy-50 rounded-xl">
                     <svg class="w-8 h-8 text-navy-700 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M<?php echo esc_attr($stat['icon']); ?>"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?php echo esc_attr($stat['icon']); ?>"/>
                     </svg>
                     <p class="text-3xl font-bold text-navy-700"><?php echo esc_html($stat['number']); ?></p>
                     <p class="text-sm text-gray-600 mt-1"><?php echo esc_html($stat['label']); ?></p>

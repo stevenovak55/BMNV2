@@ -41,7 +41,7 @@ $services = array(
                 <div class="text-center p-6 lg:p-8 rounded-xl bg-gray-50 hover:bg-navy-50 transition-colors group">
                     <div class="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-xl bg-navy-100 text-navy-700 group-hover:bg-navy-700 group-hover:text-white transition-colors">
                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M<?php echo esc_attr($service['icon']); ?>"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?php echo esc_attr($service['icon']); ?>"/>
                         </svg>
                     </div>
                     <h3 class="text-lg font-semibold text-gray-900 mb-2"><?php echo esc_html($service['title']); ?></h3>

@@ -205,6 +205,7 @@ function bmn_handle_contact_form() {
     $phone    = sanitize_text_field($_POST['phone'] ?? '');
     $message  = sanitize_textarea_field($_POST['message'] ?? '');
     $address  = sanitize_text_field($_POST['property_address'] ?? '');
+    $subj_field = sanitize_text_field($_POST['subject'] ?? '');
     $to_email = sanitize_email($_POST['agent_email'] ?? '');
 
     if (empty($name) || empty($email) || empty($message)) {
@@ -215,18 +216,32 @@ function bmn_handle_contact_form() {
         $to_email = get_theme_mod('bne_agent_email', 'mail@steve-novak.com');
     }
 
-    $subject = 'Property Inquiry: ' . ($address ?: 'General');
-    $body    = "Name: {$name}\nEmail: {$email}\n";
+    if ($address) {
+        $subject = 'Property Inquiry: ' . $address;
+    } elseif ($subj_field) {
+        $subject = $subj_field . ' - BMN Boston';
+    } else {
+        $subject = 'General Inquiry - BMN Boston';
+    }
+
+    $body = "Name: {$name}\nEmail: {$email}\n";
     if ($phone) {
         $body .= "Phone: {$phone}\n";
     }
-    $body .= "\nProperty: {$address}\n\nMessage:\n{$message}";
+    if ($address) {
+        $body .= "Property: {$address}\n";
+    }
+    $body .= "\nMessage:\n{$message}";
 
     $headers = array('Reply-To: ' . $name . ' <' . $email . '>');
 
-    wp_mail($to_email, $subject, $body, $headers);
+    $sent = wp_mail($to_email, $subject, $body, $headers);
 
-    wp_send_json_success('Message sent.');
+    if ($sent) {
+        wp_send_json_success('Message sent.');
+    } else {
+        wp_send_json_error('Failed to send message. Please try again.', 500);
+    }
 }
 add_action('wp_ajax_bmn_contact_form', 'bmn_handle_contact_form');
 add_action('wp_ajax_nopriv_bmn_contact_form', 'bmn_handle_contact_form');

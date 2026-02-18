@@ -49,7 +49,7 @@ if (!defined('ABSPATH')) {
                                     :class="tourType === '<?php echo esc_attr($value); ?>' ? 'border-navy-700 bg-navy-50 text-navy-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
                                     class="flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors text-sm font-medium">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M<?php echo esc_attr($type['icon']); ?>"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?php echo esc_attr($type['icon']); ?>"/>
                                 </svg>
                                 <?php echo esc_html($type['label']); ?>
                             </button>

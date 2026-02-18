@@ -70,7 +70,7 @@ get_header();
                 foreach ($stats as $stat) : ?>
                     <div class="text-center p-6 bg-navy-50 rounded-xl">
                         <svg class="w-8 h-8 text-navy-700 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M<?php echo esc_attr($stat['icon']); ?>"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?php echo esc_attr($stat['icon']); ?>"/>
                         </svg>
                         <p class="text-3xl font-bold text-navy-700"><?php echo esc_html($stat['number']); ?></p>
                         <p class="text-sm text-gray-600 mt-1"><?php echo esc_html($stat['label']); ?></p>
@@ -107,7 +107,7 @@ get_header();
                     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <div class="w-12 h-12 bg-navy-50 rounded-lg flex items-center justify-center mb-4">
                             <svg class="w-6 h-6 text-navy-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M<?php echo esc_attr($value['icon']); ?>"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?php echo esc_attr($value['icon']); ?>"/>
                             </svg>
                         </div>
                         <h3 class="font-semibold text-gray-900 text-lg mb-2"><?php echo esc_html($value['title']); ?></h3>

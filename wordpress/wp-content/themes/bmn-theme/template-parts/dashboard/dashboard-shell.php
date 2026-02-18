@@ -29,7 +29,7 @@ $tabs = array(
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M<?php echo esc_attr($tab['icon']); ?>"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?php echo esc_attr($tab['icon']); ?>"/>
                 </svg>
                 <?php echo esc_html($tab['label']); ?>
             </button>
