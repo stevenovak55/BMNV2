@@ -13,6 +13,7 @@ use BMN\Extractor\Repository\OfficeRepository;
 use BMN\Extractor\Repository\OpenHouseRepository;
 use BMN\Extractor\Repository\PropertyHistoryRepository;
 use BMN\Extractor\Repository\PropertyRepository;
+use BMN\Extractor\Repository\RoomRepository;
 use BMN\Extractor\Service\BridgeApiClient;
 use BMN\Extractor\Service\CronManager;
 use BMN\Extractor\Service\DataNormalizer;
@@ -48,6 +49,7 @@ final class ExtractorServiceProvider extends ServiceProvider
         $container->singleton(OpenHouseRepository::class, fn () => new OpenHouseRepository($wpdb));
         $container->singleton(ExtractionRepository::class, fn () => new ExtractionRepository($wpdb));
         $container->singleton(PropertyHistoryRepository::class, fn () => new PropertyHistoryRepository($wpdb));
+        $container->singleton(RoomRepository::class, fn () => new RoomRepository($wpdb));
 
         // Extraction Engine (depends on all repositories + services).
         $container->singleton(ExtractionEngine::class, fn (Container $c): ExtractionEngine => new ExtractionEngine(
@@ -61,6 +63,7 @@ final class ExtractorServiceProvider extends ServiceProvider
             $c->make(OpenHouseRepository::class),
             $c->make(ExtractionRepository::class),
             $c->make(PropertyHistoryRepository::class),
+            $c->make(RoomRepository::class),
         ));
 
         // Cron Manager.
@@ -123,6 +126,8 @@ final class ExtractorServiceProvider extends ServiceProvider
             new \BMN\Extractor\Migrations\CreateExtractionsTable(),
             new \BMN\Extractor\Migrations\CreatePropertyHistoryTable(),
             new \BMN\Extractor\Migrations\AddPropertyDetailColumns(),
+            new \BMN\Extractor\Migrations\AddComparisonFixes(),
+            new \BMN\Extractor\Migrations\CreateRoomsTable(),
         ];
 
         $runner->run($migrations);

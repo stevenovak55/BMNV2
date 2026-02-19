@@ -11,6 +11,7 @@ use BMN\Extractor\Repository\OfficeRepository;
 use BMN\Extractor\Repository\OpenHouseRepository;
 use BMN\Extractor\Repository\PropertyHistoryRepository;
 use BMN\Extractor\Repository\PropertyRepository;
+use BMN\Extractor\Repository\RoomRepository;
 use RuntimeException;
 use wpdb;
 
@@ -44,6 +45,7 @@ class ExtractionEngine
     private OpenHouseRepository $openHouses;
     private ExtractionRepository $extractions;
     private PropertyHistoryRepository $history;
+    private RoomRepository $rooms;
 
     public function __construct(
         wpdb $wpdb,
@@ -56,6 +58,7 @@ class ExtractionEngine
         OpenHouseRepository $openHouses,
         ExtractionRepository $extractions,
         PropertyHistoryRepository $history,
+        RoomRepository $rooms,
     ) {
         $this->wpdb = $wpdb;
         $this->apiClient = $apiClient;
@@ -67,6 +70,7 @@ class ExtractionEngine
         $this->openHouses = $openHouses;
         $this->extractions = $extractions;
         $this->history = $history;
+        $this->rooms = $rooms;
     }
 
     /**
@@ -197,6 +201,7 @@ class ExtractionEngine
         $agentIds = [];
         $officeIds = [];
         $batchMedia = [];
+        $batchRawListings = [];
         $consecutiveErrors = 0;
 
         foreach ($listings as $apiListing) {
@@ -238,6 +243,9 @@ class ExtractionEngine
                     $batchMedia[$listingKey] = $apiListing['Media'];
                 }
 
+                // Collect raw listing for room extraction.
+                $batchRawListings[$listingKey] = $apiListing;
+
                 // Collect agent/office IDs for batch lookup.
                 if (! empty($normalized['list_agent_mls_id'])) {
                     $agentIds[] = $normalized['list_agent_mls_id'];
@@ -266,17 +274,17 @@ class ExtractionEngine
         }
 
         // Fetch and store related data.
-        $this->processRelatedData($listingKeys, $agentIds, $officeIds, $batchMedia);
+        $this->processRelatedData($listingKeys, $agentIds, $officeIds, $batchMedia, $batchRawListings);
 
         return $result;
     }
 
     /**
-     * Fetch and store agents, offices, and media for the processed batch.
+     * Fetch and store agents, offices, media, and rooms for the processed batch.
      *
      * @param array $batchMedia Inline media arrays keyed by listing_key, collected from API responses.
      */
-    private function processRelatedData(array $listingKeys, array $agentIds, array $officeIds, array $batchMedia = []): void
+    private function processRelatedData(array $listingKeys, array $agentIds, array $officeIds, array $batchMedia = [], array $batchRawListings = []): void
     {
         // Agents.
         if (! empty($agentIds)) {
@@ -358,6 +366,20 @@ class ExtractionEngine
                 }
             } catch (\Throwable $e) {
                 error_log("BMN Extractor: Error fetching open houses: " . $e->getMessage());
+            }
+        }
+
+        // Rooms — extracted from the raw API listing Room* fields.
+        if (!empty($batchRawListings)) {
+            try {
+                foreach ($batchRawListings as $listingKey => $apiListing) {
+                    $roomRows = $this->normalizer->normalizeRooms($apiListing, (string) $listingKey);
+                    if (!empty($roomRows)) {
+                        $this->rooms->replaceForListing((string) $listingKey, $roomRows);
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log("BMN Extractor: Error processing rooms: " . $e->getMessage());
             }
         }
     }

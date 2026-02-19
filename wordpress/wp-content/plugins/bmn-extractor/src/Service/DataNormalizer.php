@@ -158,7 +158,7 @@ class DataNormalizer
         'structure_type'           => 'StructureType',
 
         // MA compliance fields (Fix 3, Session 24).
-        'lead_paint'               => 'MLSPIN_LEAD_PAINT',
+        // lead_paint handled separately in normalizeProperty() — RESO returns array not boolean.
         'title5'                   => 'MLSPIN_TITLE5',
         'disclosures'              => 'Disclosures',
     ];
@@ -279,6 +279,9 @@ class DataNormalizer
         $row['pets_dogs_allowed'] = $this->parsePetAllowed($apiListing, 'Dogs');
         $row['pets_cats_allowed'] = $this->parsePetAllowed($apiListing, 'Cats');
 
+        // Computed: lead_paint from MLSPIN_LEAD_PAINT array (Fix 3, Session 24).
+        $row['lead_paint'] = $this->parseLeadPaint($apiListing);
+
         // Store complete API response as JSON for fields not mapped to columns.
         $row['extra_data'] = json_encode($apiListing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -374,8 +377,10 @@ class DataNormalizer
 
         $rows = [];
         foreach ($rooms as $roomName => $attributes) {
-            // Format "MasterBedroom" → "Master Bedroom".
+            // Format "MasterBedroom" → "Master Bedroom", "Bedroom2" → "Bedroom 2".
             $formattedName = (string) preg_replace('/(?<!^)[A-Z]/', ' $0', $roomName);
+            $formattedName = (string) preg_replace('/(\d+)/', ' $1', $formattedName);
+            $formattedName = trim((string) preg_replace('/\s+/', ' ', $formattedName));
 
             $length = $attributes['length'] ?? null;
             $width = $attributes['width'] ?? null;
@@ -604,6 +609,46 @@ class DataNormalizer
         }
 
         return stripos($haystack, $petType) !== false ? 1 : 0;
+    }
+
+    /**
+     * Parse lead paint status from the MLSPIN_LEAD_PAINT array.
+     *
+     * The RESO API returns MLSPIN_LEAD_PAINT as an array of strings:
+     * ["Yes"], ["None"], ["Unknown"], ["Yes", "Certified Treated"], etc.
+     *
+     * @return int|null 1 if lead paint present, 0 if none/treated, null if unknown.
+     */
+    private function parseLeadPaint(array $apiListing): ?int
+    {
+        $values = $apiListing['MLSPIN_LEAD_PAINT'] ?? null;
+
+        if ($values === null || (is_array($values) && $values === [])) {
+            return null;
+        }
+
+        if (is_string($values)) {
+            $values = [$values];
+        }
+
+        if (!is_array($values)) {
+            return null;
+        }
+
+        $haystack = implode(' ', $values);
+
+        // "Yes" without "Certified Treated" = active lead paint.
+        if (stripos($haystack, 'Yes') !== false && stripos($haystack, 'Certified Treated') === false) {
+            return 1;
+        }
+
+        // "None" or "Certified Treated" without "Yes" = no active lead paint.
+        if (stripos($haystack, 'None') !== false || stripos($haystack, 'Certified Treated') !== false) {
+            return 0;
+        }
+
+        // "Unknown" only = null.
+        return null;
     }
 
     /**

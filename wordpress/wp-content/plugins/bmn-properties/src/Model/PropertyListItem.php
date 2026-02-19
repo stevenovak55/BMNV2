@@ -11,6 +11,11 @@ namespace BMN\Properties\Model;
  */
 final class PropertyListItem
 {
+    private static function emptyToNull(?string $value): ?string
+    {
+        return ($value === null || $value === '' || $value === '0000-00-00' || $value === '0000-00-00 00:00:00') ? null : $value;
+    }
+
     /**
      * Transform a database row into a list-item array.
      *
@@ -33,7 +38,7 @@ final class PropertyListItem
             'address'          => $row->unparsed_address ?? null,
             'street_number'    => $row->street_number ?? null,
             'street_name'      => $row->street_name ?? null,
-            'unit_number'      => $row->unit_number ?? null,
+            'unit_number'      => self::emptyToNull($row->unit_number ?? null),
             'city'             => $row->city ?? null,
             'state'            => $row->state_or_province ?? null,
             'zip'              => $row->postal_code ?? null,
@@ -44,12 +49,12 @@ final class PropertyListItem
             'baths_full'       => isset($row->bathrooms_full) && $row->bathrooms_full !== null ? (int) $row->bathrooms_full : null,
             'baths_half'       => isset($row->bathrooms_half) && $row->bathrooms_half !== null ? (int) $row->bathrooms_half : null,
             'sqft'             => $row->living_area !== null ? (int) $row->living_area : null,
-            'property_type'    => $row->property_type ?? null,
-            'property_sub_type' => $row->property_sub_type ?? null,
+            'property_type'    => self::emptyToNull($row->property_type ?? null),
+            'property_sub_type' => self::emptyToNull($row->property_sub_type ?? null),
             'status'           => $row->standard_status ?? null,
             'latitude'         => $row->latitude !== null ? (float) $row->latitude : null,
             'longitude'        => $row->longitude !== null ? (float) $row->longitude : null,
-            'list_date'        => $row->listing_contract_date ?? null,
+            'list_date'        => self::emptyToNull($row->listing_contract_date ?? null),
             'dom'              => $row->days_on_market !== null ? (int) $row->days_on_market : null,
             'main_photo_url'   => $row->main_photo_url ?? null,
             'photos'           => $photoUrls,

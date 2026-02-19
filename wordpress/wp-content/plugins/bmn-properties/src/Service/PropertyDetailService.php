@@ -79,6 +79,7 @@ class PropertyDetailService
 
         $openHouses = $this->repository->fetchUpcomingOpenHouses($listingKey);
         $history = $this->repository->fetchPropertyHistory($listingKey);
+        $rooms = $this->repository->fetchRooms($listingKey);
 
         return PropertyDetail::fromData(
             $property,
@@ -87,6 +88,7 @@ class PropertyDetailService
             $office,
             $openHouses,
             $history,
+            $rooms,
         );
     }
 }

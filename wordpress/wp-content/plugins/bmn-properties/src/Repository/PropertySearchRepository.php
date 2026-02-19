@@ -63,6 +63,7 @@ class PropertySearchRepository
     private string $officesTable;
     private string $openHousesTable;
     private string $historyTable;
+    private string $roomsTable;
 
     public function __construct(\wpdb $wpdb)
     {
@@ -73,6 +74,7 @@ class PropertySearchRepository
         $this->officesTable = $wpdb->prefix . 'bmn_offices';
         $this->openHousesTable = $wpdb->prefix . 'bmn_open_houses';
         $this->historyTable = $wpdb->prefix . 'bmn_property_history';
+        $this->roomsTable = $wpdb->prefix . 'bmn_rooms';
     }
 
     // ------------------------------------------------------------------
@@ -318,6 +320,25 @@ class PropertySearchRepository
                  FROM {$this->historyTable}
                  WHERE listing_key = %s
                  ORDER BY changed_at DESC",
+                $listingKey
+            )
+        ) ?? [];
+    }
+
+    /**
+     * Fetch rooms for a property.
+     *
+     * @param string $listingKey The listing_key value.
+     * @return object[] Sorted by room_type ascending.
+     */
+    public function fetchRooms(string $listingKey): array
+    {
+        return $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT room_type, room_level, room_dimensions, room_area, room_description
+                 FROM {$this->roomsTable}
+                 WHERE listing_key = %s
+                 ORDER BY room_type ASC",
                 $listingKey
             )
         ) ?? [];

@@ -367,7 +367,7 @@ class SpatialService implements GeocodingService
                 %f, ' ', %f, ',',
                 %f, ' ', %f, ',',
                 %f, ' ', %f,
-            '))')), {$col})",
+            '))'), 4326), {$col})",
             $west, $south,   // SW corner
             $east, $south,   // SE corner
             $east, $north,   // NE corner
@@ -393,7 +393,7 @@ class SpatialService implements GeocodingService
         // ST_Distance_Sphere returns meters. POINT uses X=lng, Y=lat.
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         return $wpdb->prepare(
-            "ST_Distance_Sphere({$col}, ST_GeomFromText(CONCAT('POINT(', %f, ' ', %f, ')'))) <= %f",
+            "ST_Distance_Sphere({$col}, ST_GeomFromText(CONCAT('POINT(', %f, ' ', %f, ')'), 4326)) <= %f",
             $lng,
             $lat,
             $radiusMeters
@@ -431,7 +431,7 @@ class SpatialService implements GeocodingService
 
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         return $wpdb->prepare(
-            "ST_Contains(ST_GeomFromText(CONCAT('POLYGON(({$wktCoords}))')), {$col})",
+            "ST_Contains(ST_GeomFromText(CONCAT('POLYGON(({$wktCoords}))'), 4326), {$col})",
             ...$values
         );
     }

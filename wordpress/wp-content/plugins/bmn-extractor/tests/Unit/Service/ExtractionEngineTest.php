@@ -11,6 +11,7 @@ use BMN\Extractor\Repository\OfficeRepository;
 use BMN\Extractor\Repository\OpenHouseRepository;
 use BMN\Extractor\Repository\PropertyHistoryRepository;
 use BMN\Extractor\Repository\PropertyRepository;
+use BMN\Extractor\Repository\RoomRepository;
 use BMN\Extractor\Service\BridgeApiClient;
 use BMN\Extractor\Service\DataNormalizer;
 use BMN\Extractor\Service\ExtractionEngine;
@@ -30,6 +31,7 @@ class ExtractionEngineTest extends TestCase
     private OpenHouseRepository&MockObject $openHouses;
     private ExtractionRepository&MockObject $extractions;
     private PropertyHistoryRepository&MockObject $history;
+    private RoomRepository&MockObject $rooms;
     private ExtractionEngine $engine;
 
     protected function setUp(): void
@@ -44,6 +46,7 @@ class ExtractionEngineTest extends TestCase
         $this->openHouses = $this->createMock(OpenHouseRepository::class);
         $this->extractions = $this->createMock(ExtractionRepository::class);
         $this->history = $this->createMock(PropertyHistoryRepository::class);
+        $this->rooms = $this->createMock(RoomRepository::class);
 
         $this->engine = new ExtractionEngine(
             $this->wpdb,
@@ -56,6 +59,7 @@ class ExtractionEngineTest extends TestCase
             $this->openHouses,
             $this->extractions,
             $this->history,
+            $this->rooms,
         );
 
         // Default: lock acquisition succeeds.
@@ -100,6 +104,7 @@ class ExtractionEngineTest extends TestCase
             $this->openHouses,
             $this->extractions,
             $this->history,
+            $this->rooms,
         );
 
         $this->expectException(RuntimeException::class);
